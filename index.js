@@ -7,6 +7,9 @@ import QRCode from "qrcode"
 import { randomUUID } from "crypto"
 import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
+import { toHtml } from '../ws-plugin/model/index.js'
+import { Render } from '../ws-plugin/components/index.js'
+import Runtime from "../../lib/plugins/runtime.js"
 
 const adapter = new class QQBotAdapter {
   constructor() {
@@ -33,7 +36,7 @@ const adapter = new class QQBotAdapter {
     }
 
     for (const i of [inputFile, pcmFile])
-      try { fs.unlinkSync(i) } catch (err) {}
+      try { fs.unlinkSync(i) } catch (err) { }
 
     return file
   }
@@ -67,10 +70,22 @@ const adapter = new class QQBotAdapter {
         case "markdown":
           break
         case "node":
-          msgs.push(...(await Bot.sendForwardMsg(msg => this.sendMsg(send, msg), i.data)))
-          continue
+          const e = {
+            reply: (msg) => {
+              i = msg
+            },
+            bot: {
+              uin: this.uin,
+              nickname: this.nickname
+            }
+          }
+          e.runtime = new Runtime(e)
+          await Render.render('chatHistory/index', {
+            data: await toHtml(i.data, e)
+          }, { e, scale: 1.2 })
+          break
         default:
-          i = { type: "text", data: { text: JSON.stringify(i) }}
+          i = { type: "text", data: { text: JSON.stringify(i) } }
       }
 
       if (i.file)
@@ -235,7 +250,7 @@ const adapter = new class QQBotAdapter {
         name: this.name,
         version: this.version,
       },
-      stat: { start_time: Date.now()/1000 },
+      stat: { start_time: Date.now() / 1000 },
 
       pickFriend: user_id => this.pickFriend(id, user_id),
       get pickUser() { return this.pickFriend },
@@ -266,6 +281,8 @@ const adapter = new class QQBotAdapter {
 
     logger.mark(`${logger.blue(`[${id}]`)} ${this.name}(${this.id}) ${this.version} 已连接`)
     Bot.em(`connect.${id}`, { self_id: id })
+    this.uin = id
+    this.nickname = Bot[id].sdk.nickname
     return true
   }
 

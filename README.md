@@ -13,6 +13,10 @@ TRSS-Yunzai QQBot 适配器 插件
 
 </div>
 
+## 自用fork版
+
+1. 转发消息改为渲染成图片,需要安装`ws-plugin`
+
 ## 安装教程
 
 1. 准备：[TRSS-Yunzai](../../../Yunzai)
