@@ -76,7 +76,7 @@ const adapter = new class QQBotAdapter {
             },
             bot: {
               uin: this.uin,
-              nickname: this.nickname
+              nickname: Bot[this.uin].sdk.nickname
             }
           }
           e.runtime = new Runtime(e)
@@ -282,7 +282,6 @@ const adapter = new class QQBotAdapter {
     logger.mark(`${logger.blue(`[${id}]`)} ${this.name}(${this.id}) ${this.version} 已连接`)
     Bot.em(`connect.${id}`, { self_id: id })
     this.uin = id
-    this.nickname = Bot[id].sdk.nickname
     return true
   }
 
