@@ -66,9 +66,11 @@ const adapter = new class QQBotAdapter {
         i = { type: "text", text: i }
 
       switch (i.type) {
+        case "at":
+          i = { type: 'text', text: '\n' }
+          break
         case "text":
         case "face":
-        case "at":
         case "reply":
         case "markdown":
         case "button":
@@ -98,7 +100,7 @@ const adapter = new class QQBotAdapter {
           }
           e.runtime = new Runtime(e)
           await toHtml(i.data, e, true)
-          if (i.file){
+          if (i.file) {
             i.file = await Bot.fileToUrl(i.file)
           }
           if (messages.length) {
