@@ -80,9 +80,7 @@ const adapter = new class QQBotAdapter {
             }
           }
           e.runtime = new Runtime(e)
-          await Render.render('chatHistory/index', {
-            data: await toHtml(i.data, e)
-          }, { e, scale: 1.2 })
+          await toHtml(i.data, e, true)
           break
         default:
           i = { type: "text", data: { text: JSON.stringify(i) } }
