@@ -81,8 +81,10 @@ const adapter = new class QQBotAdapter {
         case "file":
           if (i.file)
             i.file = await Bot.fileToUrl(i.file)
-          await sendMsg(messages)
-          messages = []
+          if (messages.length) {
+            await sendMsg(messages)
+            messages = []
+          }
           break
         case "node":
           const e = {
