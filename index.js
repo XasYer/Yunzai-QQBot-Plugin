@@ -98,6 +98,13 @@ const adapter = new class QQBotAdapter {
           }
           e.runtime = new Runtime(e)
           await toHtml(i.data, e, true)
+          if (i.file){
+            i.file = await Bot.fileToUrl(i.file)
+          }
+          if (messages.length) {
+            await sendMsg(messages)
+            messages = []
+          }
           break
         default:
           i = { type: "text", data: { text: JSON.stringify(i) } }
