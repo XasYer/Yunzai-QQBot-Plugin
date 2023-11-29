@@ -114,7 +114,7 @@ const adapter = new class QQBotAdapter {
       if (i.type == "text" && i.text) {
         const match = i.text.match(this.toQRCodeRegExp)
         if (match) for (const url of match) {
-          await this.sendMsg(send, segment.image(await this.makeQRCode(url)))
+          msgs.push(...(await this.sendMsg(data, send, segment.image(await this.makeQRCode(url)))))
           i.text = i.text.replace(url, "[链接(请扫码查看)]")
         }
       }
