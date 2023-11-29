@@ -8,7 +8,6 @@ import { randomUUID } from "crypto"
 import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
 import { toHtml } from '../ws-plugin/model/index.js'
-import { Render } from '../ws-plugin/components/index.js'
 import Runtime from "../../lib/plugins/runtime.js"
 
 const adapter = new class QQBotAdapter {
@@ -45,7 +44,7 @@ const adapter = new class QQBotAdapter {
     return (await QRCode.toDataURL(data)).replace("data:image/png;base64,", "base64://")
   }
 
-  async sendMsg(send, msg) {
+  async sendMsg(data, send, msg) {
     if (!Array.isArray(msg))
       msg = [msg]
     const msgs = []
@@ -67,8 +66,8 @@ const adapter = new class QQBotAdapter {
 
       switch (i.type) {
         case "at":
-          i = { type: 'text', text: '\n' }
-          break
+          // i = { type: 'text', text: '\n' }
+          continue
         case "text":
         case "face":
         case "reply":
@@ -129,17 +128,17 @@ const adapter = new class QQBotAdapter {
 
   sendReplyMsg(data, msg, event) {
     Bot.makeLog("info", `发送回复消息：[${data.group_id ? `${data.group_id}, ` : ""}${data.user_id}] ${Bot.String(msg)}`, data.self_id)
-    return this.sendMsg(msg => event.reply(msg), msg)
+    return this.sendMsg(data, msg => event.reply(msg), msg)
   }
 
   sendFriendMsg(data, msg, event) {
     Bot.makeLog("info", `发送好友消息：[${data.user_id}] ${Bot.String(msg)}`, data.self_id)
-    return this.sendMsg(msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
+    return this.sendMsg(data, msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
   }
 
   sendGroupMsg(data, msg, event) {
     Bot.makeLog("info", `发送群消息：[${data.group_id}] ${Bot.String(msg)}`, data.self_id)
-    return this.sendMsg(msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
+    return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
   }
 
   pickFriend(id, user_id) {
