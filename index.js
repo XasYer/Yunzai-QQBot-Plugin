@@ -116,29 +116,23 @@ const adapter = new class QQBotAdapter {
     for (const i of messages) {
       // 如果是文字
       if (i.type === 'text') {
-        // 放到数组里等待发送
         msg.push(i)
-        // 结束本次循环
         continue
       }
-      // 如果是图片
-      else if (i.type === 'image') {
-        // 如果有等待发送的消息只全是文字
-        if (msg.length && msg.some(i => i.type === 'text')) {
-          // 添加到待发送列表
-          msg.push(i)
-          // 发送
-          await sendMsg(msg)
-          // 清空待发送
-          msg = []
-          // 结束本次循环
-          continue
-        }
+      // 如果是图片且等待发送的消息全是文字
+      else if (i.type === 'image' && msg.some(i => i.type === 'text')) {
+        msg.push(i)
+        await sendMsg(msg)
+        msg = []
+        continue
       }
-      // 不满足以上条件就直接发送
+      // 先把等待发送的消息发出来
+      if (msg.length) {
+        await sendMsg(msg)
+        msg = []
+      }
       await sendMsg(i)
     }
-    // 如果还有未发送的消息
     if (msg.length) {
       await sendMsg(msg)
     }
