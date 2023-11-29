@@ -123,8 +123,8 @@ const adapter = new class QQBotAdapter {
       }
       // 如果是图片
       else if (i.type === 'image') {
-        // 如果等待发送的消息只有一条且是文本
-        if (msg.length == 1 && msg[0].type == 'text') {
+        // 如果有等待发送的消息只全是文字
+        if (msg.length && msg.some(i => i.type === 'text')) {
           // 添加到待发送列表
           msg.push(i)
           // 发送
