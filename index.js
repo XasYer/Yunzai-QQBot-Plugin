@@ -82,10 +82,6 @@ const adapter = new class QQBotAdapter {
         case "file":
           if (i.file)
             i.file = await Bot.fileToUrl(i.file)
-          if (messages.length) {
-            await sendMsg(messages)
-            messages = []
-          }
           break
         case "node":
           const e = {
@@ -99,13 +95,7 @@ const adapter = new class QQBotAdapter {
           }
           e.runtime = new Runtime(e)
           await toHtml(i.data, e, true)
-          if (i.file) {
-            i.file = await Bot.fileToUrl(i.file)
-          }
-          if (messages.length) {
-            await sendMsg(messages)
-            messages = []
-          }
+          i.file = await Bot.fileToUrl(i.file)
           break
         default:
           i = { type: "text", data: { text: JSON.stringify(i) } }
@@ -121,8 +111,37 @@ const adapter = new class QQBotAdapter {
 
       messages.push(i)
     }
-
-    await sendMsg(messages)
+    msg = []
+    // 可恶的tx只能一张图加一段文字
+    for (const i of messages) {
+      // 如果是文字
+      if (i.type === 'text') {
+        // 放到数组里等待发送
+        msg.push(i)
+        // 结束本次循环
+        continue
+      }
+      // 如果是图片
+      else if (i.type === 'image') {
+        // 如果等待发送的消息只有一条且是文本
+        if (msg.length == 1 && msg[0].type == 'text') {
+          // 添加到待发送列表
+          msg.push(i)
+          // 发送
+          await sendMsg(msg)
+          // 清空待发送
+          msg = []
+          // 结束本次循环
+          continue
+        }
+      }
+      // 不满足以上条件就直接发送
+      await sendMsg(i)
+    }
+    // 如果还有未发送的消息
+    if (msg.length) {
+      await sendMsg(msg)
+    }
     return msgs
   }
 
