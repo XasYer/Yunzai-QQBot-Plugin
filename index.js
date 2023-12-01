@@ -73,6 +73,8 @@ const adapter = new class QQBotAdapter {
         case "reply":
         case "markdown":
         case "button":
+        case "ark":
+        case "embed":
           break
         case "record":
           i.type = "audio"
