@@ -113,27 +113,16 @@ const adapter = new class QQBotAdapter {
 
       messages.push(i)
     }
+    const sendType = ['audio', 'image', 'video', 'file']
+    const sendReg = new RegExp(`^(${sendType.join('|')})$`)
     msg = []
     // 可恶的tx只能一张图加一段文字
     for (const i of messages) {
-      // 如果是文字
-      if (i.type === 'text') {
-        msg.push(i)
-        continue
-      }
-      // 如果是图片且等待发送的消息全是文字
-      else if (i.type === 'image' && msg.some(i => i.type === 'text')) {
-        msg.push(i)
-        await sendMsg(msg)
-        msg = []
-        continue
-      }
-      // 先把等待发送的消息发出来
-      if (msg.length) {
+      msg.push(i)
+      if (sendReg.test(i.type)) {
         await sendMsg(msg)
         msg = []
       }
-      await sendMsg(i)
     }
     if (msg.length) {
       await sendMsg(msg)
