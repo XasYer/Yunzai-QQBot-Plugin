@@ -9,6 +9,7 @@ const config = {
   tips: "",
   permission: "master",
   toQRCode: true,
+  toQQUin: false,
   bot: {
     sandbox: false,
     maxRetry: Infinity,

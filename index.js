@@ -9,6 +9,7 @@ import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
 import { toHtml } from '../ws-plugin/model/index.js'
 import Runtime from "../../lib/plugins/runtime.js"
+import { findGroup_id, findUser_id } from '../ws-plugin/model/db/index.js'
 
 const adapter = new class QQBotAdapter {
   constructor() {
@@ -218,7 +219,7 @@ const adapter = new class QQBotAdapter {
     Bot.em(`${data.post_type}.${data.message_type}`, data)
   }
 
-  makeGroupMessage(id, event) {
+  async makeGroupMessage(id, event) {
     const data = this.makeMessage(id, event)
     data.message_type = "group"
     data.bot.gl.set(data.group_id, {
@@ -226,7 +227,16 @@ const adapter = new class QQBotAdapter {
       group_openid: data.event.group_openid,
     })
     data.reply = msg => this.sendReplyMsg(data, msg, event)
-
+    if (config.toQQUin) {
+      const user_id = await findUser_id({ user_id: data.user_id })
+      if (user_id?.custom) {
+        data.user_id = user_id.custom
+      }
+      const group_id = await findGroup_id({ group_id: data.group_id })
+      if (group_id?.custom) {
+        data.group_id = group_id.custom
+      }
+    }
     Bot.makeLog("info", `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
     Bot.em(`${data.post_type}.${data.message_type}`, data)
   }
@@ -334,6 +344,11 @@ export class QQBotAdapter extends plugin {
           reg: "^#[Qq]+[Bb]ot设置[0-9]+:[0-9]+:.+:.+:[01]:[01]$",
           fnc: "Token",
           permission: config.permission,
+        },
+        {
+          reg: "^#[Qq]+[Bb]ot设置转换\\s*(开启|关闭)$",
+          fnc: 'Setting',
+          permission: config.permission,
         }
       ]
     })
@@ -357,6 +372,13 @@ export class QQBotAdapter extends plugin {
         return false
       }
     }
+    configSave(config)
+  }
+
+  async Setting() {
+    const toQQUin = this.e.msg.includes('开启') ? true : false
+    config.toQQUin = toQQUin
+    this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
     configSave(config)
   }
 }
