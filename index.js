@@ -232,10 +232,10 @@ const adapter = new class QQBotAdapter {
       if (user_id?.custom) {
         data.user_id = user_id.custom
       }
-      const group_id = await findGroup_id({ group_id: data.group_id })
-      if (group_id?.custom) {
-        data.group_id = group_id.custom
-      }
+      // const group_id = await findGroup_id({ group_id: data.group_id })
+      // if (group_id?.custom) {
+      //   data.group_id = group_id.custom
+      // }
     }
     Bot.makeLog("info", `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
     Bot.em(`${data.post_type}.${data.message_type}`, data)
