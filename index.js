@@ -11,6 +11,8 @@ import { toHtml } from '../ws-plugin/model/index.js'
 import Runtime from "../../lib/plugins/runtime.js"
 import { findGroup_id, findUser_id } from '../ws-plugin/model/db/index.js'
 
+const userIdCache = {}
+
 const adapter = new class QQBotAdapter {
   constructor() {
     this.id = "QQBot"
@@ -147,6 +149,11 @@ const adapter = new class QQBotAdapter {
   }
 
   pickFriend(id, user_id) {
+    if (config.toQQUin) {
+      if (userIdCache[user_id]) {
+        user_id = userIdCache[user_id]
+      }
+    }
     const i = {
       ...Bot[id].fl.get(user_id),
       self_id: id,
@@ -161,6 +168,11 @@ const adapter = new class QQBotAdapter {
   }
 
   pickMember(id, group_id, user_id) {
+    if (config.toQQUin) {
+      if (userIdCache[user_id]) {
+        user_id = userIdCache[user_id]
+      }
+    }
     const i = {
       ...Bot[id].fl.get(user_id),
       self_id: id,
@@ -230,6 +242,7 @@ const adapter = new class QQBotAdapter {
     if (config.toQQUin) {
       const user_id = await findUser_id({ user_id: data.user_id })
       if (user_id?.custom) {
+        userIdCache[user_id.custom] = data.user_id
         data.user_id = user_id.custom
       }
       // const group_id = await findGroup_id({ group_id: data.group_id })
