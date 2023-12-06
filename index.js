@@ -7,7 +7,7 @@ import QRCode from "qrcode"
 import { randomUUID } from "crypto"
 import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
-import { toHtml } from '../ws-plugin/model/index.js'
+import { toImg } from '../ws-plugin/model/index.js'
 import Runtime from "../../lib/plugins/runtime.js"
 import { findGroup_id, findUser_id } from '../ws-plugin/model/db/index.js'
 
@@ -99,7 +99,7 @@ const adapter = new class QQBotAdapter {
             }
           }
           e.runtime = new Runtime(e)
-          await toHtml(i.data, e, true)
+          await toImg(i.data, e, true)
           i.file = await Bot.fileToUrl(i.file)
           break
         default:
