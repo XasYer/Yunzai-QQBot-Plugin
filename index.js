@@ -218,7 +218,7 @@ const adapter = new class QQBotAdapter {
       raw_message: event.raw_message,
     }
     data.bot.fl.set(data.user_id, data.sender)
-
+    data.bot.stat.recv_msg_cnt++
     return data
   }
 
@@ -295,7 +295,10 @@ const adapter = new class QQBotAdapter {
         name: this.name,
         version: this.version,
       },
-      stat: { start_time: Date.now() / 1000 },
+      stat: {
+        start_time: Date.now() / 1000,
+        recv_msg_cnt: 0
+      },
 
       pickFriend: user_id => this.pickFriend(id, user_id),
       get pickUser() { return this.pickFriend },
