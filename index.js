@@ -102,6 +102,9 @@ const adapter = new class QQBotAdapter {
           await toImg(i.data, e, true)
           i.file = await Bot.fileToUrl(i.file)
           break
+        case "raw":
+          i = i.data
+          break
         default:
           i = { type: "text", data: { text: JSON.stringify(i) } }
       }
