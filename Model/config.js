@@ -10,6 +10,7 @@ const config = {
   permission: "master",
   toQRCode: true,
   toQQUin: false,
+  markdown: {},
   bot: {
     sandbox: false,
     maxRetry: Infinity,
