@@ -293,6 +293,7 @@ const adapter = new class QQBotAdapter {
   }
 
   async makeMsg(data, msg) {
+    const sendType = ['audio', 'image', 'video', 'file']
     if (!Array.isArray(msg))
       msg = [msg]
     const messages = []
@@ -321,7 +322,7 @@ const adapter = new class QQBotAdapter {
         case "file":
           if (i.file)
             i.file = await Bot.fileToUrl(i.file)
-          if (message.length) {
+          if (message.some(s => sendType.includes(s.type))) {
             messages.push(message)
             message = []
           }
@@ -348,7 +349,7 @@ const adapter = new class QQBotAdapter {
           e.runtime = new Runtime(e)
           await toImg(i.data, e, true)
           i.file = await Bot.fileToUrl(i.file)
-          if (message.length) {
+          if (message.some(s => sendType.includes(s.type))) {
             messages.push(message)
             message = []
           }
@@ -364,7 +365,7 @@ const adapter = new class QQBotAdapter {
         const match = i.text.match(this.toQRCodeRegExp)
         if (match) for (const url of match) {
           const msg = segment.image(await Bot.fileToUrl(await this.makeQRCode(url)))
-          if (message.length) {
+          if (message.some(s => sendType.includes(s.type))) {
             messages.push(message)
             message = []
           }
