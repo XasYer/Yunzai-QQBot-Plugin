@@ -140,6 +140,7 @@ const adapter = new class QQBotAdapter {
     const messages = []
     let content = ""
     const button = []
+    let reply
 
     for (let i of msg) {
       if (typeof i == "object")
@@ -176,8 +177,10 @@ const adapter = new class QQBotAdapter {
           button.push(...this.makeButtons(data, i.data))
           break
         case "face":
-        case "reply":
           break
+        case "reply":
+          reply = i
+          continue
         case "node":
           for (const { message } of i.data)
             messages.push(...(await this.makeRawMarkdownMsg(data, message)))
@@ -192,6 +195,8 @@ const adapter = new class QQBotAdapter {
 
     if (content)
       messages.unshift([{ type: "markdown", content }, ...button])
+    if (reply) for (const i of messages)
+      i.unshift(reply)
     return messages
   }
 
@@ -213,6 +218,7 @@ const adapter = new class QQBotAdapter {
     let content = ""
     let button = []
     let template = {}
+    let reply
 
     for (let i of msg) {
       if (typeof i == "object")
@@ -268,8 +274,10 @@ const adapter = new class QQBotAdapter {
           button.push(...this.makeButtons(data, i.data))
           break
         case "face":
-        case "reply":
           break
+        case "reply":
+          reply = i
+          continue
         case "node":
           for (const { message } of i.data)
             messages.push(...(await this.makeRawMarkdownMsg(data, message)))
@@ -301,6 +309,8 @@ const adapter = new class QQBotAdapter {
         this.makeMarkdownTemplate(data, template),
         ...button,
       ])
+    if (reply) for (const i of messages)
+      i.unshift(reply)
     return messages
   }
 
@@ -310,6 +320,7 @@ const adapter = new class QQBotAdapter {
       msg = [msg]
     const messages = []
     let message = []
+    let reply
     for (let i of msg) {
       if (typeof i == "object")
         i = { ...i }
@@ -322,7 +333,6 @@ const adapter = new class QQBotAdapter {
           continue
         case "text":
         case "face":
-        case "reply":
         case "ark":
         case "embed":
           break
@@ -339,6 +349,9 @@ const adapter = new class QQBotAdapter {
             message = []
           }
           break
+        case "reply":
+          reply = i
+          continue
         case "markdown":
           if (typeof i.data == "object")
             i = { type: "markdown", ...i.data }
@@ -395,6 +408,8 @@ const adapter = new class QQBotAdapter {
     }
     if (message.length)
       messages.push(message)
+    if (reply) for (const i of messages)
+      i.unshift(reply)
     return messages
   }
 
