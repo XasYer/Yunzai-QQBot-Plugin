@@ -74,6 +74,9 @@ const adapter = new class QQBotAdapter {
     if (!Buffer.isBuffer(buffer)) return {}
 
     let url
+    if (config.toMd) {
+      url = await Bot.fileToUrl(buffer)
+    } else
     if (file.match?.(/^https?:\/\//)) url = file
     else url = await Bot.fileToUrl(buffer)
 
@@ -608,7 +611,6 @@ const adapter = new class QQBotAdapter {
           break
         case "image": {
           let { dec, url } = await this.makeImage(i.file)
-          url = await Bot.fileToUrl(url)
           if (template.imagesize && template.im) {
             template.zuozhe = content
             messages.push([
@@ -660,7 +662,6 @@ const adapter = new class QQBotAdapter {
         const match = content.match(this.toQRCodeRegExp)
         if (match) for (const url of match) {
           let { dec, url } = await this.makeImage(await this.makeQRCode(url))
-          url = await Bot.fileToUrl(url)
           content = content.replace(url, "[链接(请扫码查看)]")
           if (template.img_dec && template.img_url) {
             template.zuozhe = content
