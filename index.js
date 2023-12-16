@@ -579,6 +579,7 @@ const adapter = new class QQBotAdapter {
     let content = ""
     let button = []
     let template = {}
+    let reply
 
     for (let i of msg) {
       if (typeof i == "object")
@@ -634,8 +635,10 @@ const adapter = new class QQBotAdapter {
           button.push(...this.makeButtons(data, i.data))
           break
         case "face":
-        case "reply":
           break
+        case "reply":
+          reply = i
+          continue
         case "node":
           for (const { message } of i.data)
             messages.push(...(await this.toMd(data, message)))
@@ -682,6 +685,8 @@ const adapter = new class QQBotAdapter {
         this.makeTemplate(data, template),
         ...button,
       ])
+    if (reply) for (const i of messages)
+      i.unshift(reply)
     return messages
   }
 
