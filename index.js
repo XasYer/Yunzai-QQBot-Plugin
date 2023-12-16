@@ -8,11 +8,23 @@ import imageSize from "image-size"
 import { randomUUID } from "crypto"
 import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
-import { toImg } from '../ws-plugin/model/index.js'
 import Runtime from "../../lib/plugins/runtime.js"
-import { findGroup_id, findUser_id } from '../ws-plugin/model/db/index.js'
 
 const userIdCache = {}
+const findUser_id = await (async () => {
+  try {
+    return (await import('../ws-plugin/model/db/index.js')).findUser_id
+  } catch (error) {
+    return false
+  }
+})()
+const toImg = await (async () => {
+  try {
+    return (await import('../ws-plugin/model/index.js')).toImg
+  } catch (error) {
+    return false
+  }
+})()
 
 const adapter = new class QQBotAdapter {
   constructor() {
@@ -337,21 +349,26 @@ const adapter = new class QQBotAdapter {
           message.push(...this.makeButtons(data, i.data))
           continue
         case "node":
-          const e = {
-            reply: (msg) => {
-              i = msg
-            },
-            bot: {
-              uin: this.uin,
-              nickname: Bot[this.uin].sdk.nickname
+          if (toImg) {
+            const e = {
+              reply: (msg) => {
+                i = msg
+              },
+              bot: {
+                uin: this.uin,
+                nickname: Bot[this.uin].sdk.nickname
+              }
             }
-          }
-          e.runtime = new Runtime(e)
-          await toImg(i.data, e, true)
-          i.file = await Bot.fileToUrl(i.file)
-          if (message.some(s => sendType.includes(s.type))) {
-            messages.push(message)
-            message = []
+            e.runtime = new Runtime(e)
+            await toImg(i.data, e, true)
+            i.file = await Bot.fileToUrl(i.file)
+            if (message.some(s => sendType.includes(s.type))) {
+              messages.push(message)
+              message = []
+            }
+          } else {
+            for (const { message } of i.data)
+              messages.push(...(await this.makeMsg(data, message)))
           }
           break
         case "raw":
@@ -399,6 +416,8 @@ const adapter = new class QQBotAdapter {
         else
           msgs = await this.makeMsg(data, msg)
       }
+    } else if (config.toMd) {
+      msgs = await this.toMd(data, msg)
     } else {
       msgs = await this.makeMsg(data, msg)
     }
@@ -523,7 +542,7 @@ const adapter = new class QQBotAdapter {
       group_openid: data.event.group_openid,
     })
     data.reply = msg => this.sendReplyMsg(data, msg, event)
-    if (config.toQQUin) {
+    if (config.toQQUin && findUser_id) {
       const user_id = await findUser_id({ user_id: data.user_id })
       if (user_id?.custom) {
         userIdCache[user_id.custom] = data.user_id
@@ -536,6 +555,130 @@ const adapter = new class QQBotAdapter {
     }
     Bot.makeLog("info", `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
     Bot.em(`${data.post_type}.${data.message_type}`, data)
+  }
+
+  async toMd(data, msg) {
+    if (!Array.isArray(msg))
+      msg = [msg]
+    const messages = []
+    let content = ""
+    let button = []
+    let template = {}
+
+    for (let i of msg) {
+      if (typeof i == "object")
+        i = { ...i }
+      else
+        i = { type: "text", text: i }
+
+      switch (i.type) {
+        case "record":
+          i.type = "audio"
+          i.file = await this.makeSilk(i.file)
+        case "video":
+        case "file":
+          if (i.file) i.file = await Bot.fileToUrl(i.file)
+          messages.push(i)
+          break
+        case "at":
+          if (i.qq == "all")
+            content += "@everyone"
+          else
+            content += `<@${i.qq.replace(`${data.self_id}:`, "")}>`
+          break
+        case "text":
+          content += i.text
+          break
+        case "image": {
+          const { dec, url } = await this.makeImage(i.file)
+
+          if (template.imagesize && template.im) {
+            template.zuozhe = content
+            messages.push([
+              this.makeTemplate(data, template),
+              ...button,
+            ])
+            content = ""
+            button = []
+          }
+
+          template = {
+            title: content,
+            imagesize: dec,
+            im: url,
+          }
+          content = ""
+          break
+        } case "markdown":
+          if (typeof i.data == "object")
+            messages.push({ type: "markdown", ...i.data })
+          else
+            messages.push({ type: "markdown", content: i.data })
+          break
+        case "button":
+          button.push(...this.makeButtons(data, i.data))
+          break
+        case "face":
+        case "reply":
+          break
+        case "node":
+          for (const { message } of i.data)
+            messages.push(...(await this.toMd(data, message)))
+          continue
+        case "raw":
+          messages.push(i.data)
+          break
+        default:
+          content += await this.makeRawMarkdownText(JSON.stringify(i))
+      }
+
+      if (content) {
+        content = content.replace(/\n/g, "　")
+        const match = content.match(this.toQRCodeRegExp)
+        if (match) for (const url of match) {
+          const { dec, url } = await this.makeImage(await this.makeQRCode(url))
+          content = content.replace(url, "[链接(请扫码查看)]")
+          if (template.img_dec && template.img_url) {
+            template.zuozhe = content
+            messages.push([
+              this.makeTemplate(data, template),
+              ...button,
+            ])
+            content = ""
+            button = []
+          }
+
+          template = {
+            title: content,
+            imagesize: dec,
+            im: url,
+          }
+          content = ""
+        }
+      }
+    }
+    if (template.imagesize && template.im) {
+      template.zuozhe = content
+    } else if (content) {
+      template = { title: content, text_end: "" }
+    }
+    if (template.title || template.zuozhe || (template.imagesize && template.im))
+      messages.push([
+        this.makeTemplate(data, template),
+        ...button,
+      ])
+    return messages
+  }
+
+  makeTemplate(data, template) {
+    const params = []
+    for (const i of ["title", "imagesize", "im", "zuozhe"])
+      if (template[i]) params.push({ key: i, values: [template[i]] })
+    return {
+      type: "markdown",
+      custom_template_id: '102053559_1702454556',
+      params,
+    }
   }
 
   async connect(token) {
