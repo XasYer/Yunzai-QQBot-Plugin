@@ -576,6 +576,7 @@ const adapter = new class QQBotAdapter {
     if (!Array.isArray(msg))
       msg = [msg]
     const messages = []
+    let message = []
     let content = ""
     let button = []
     let template = {}
@@ -644,10 +645,14 @@ const adapter = new class QQBotAdapter {
             messages.push(...(await this.toMd(data, message)))
           continue
         case "raw":
-          messages.push(i.data)
+          message.push(i.data)
           break
         default:
           content += await this.makeRawMarkdownText(JSON.stringify(i))
+      }
+
+      if (message.length) {
+        messages.push(message)
       }
 
       if (content) {
