@@ -607,8 +607,8 @@ const adapter = new class QQBotAdapter {
           content += i.text
           break
         case "image": {
-          const { dec, url } = await this.makeImage(i.file)
-
+          let { dec, url } = await this.makeImage(i.file)
+          url = await Bot.fileToUrl(url)
           if (template.imagesize && template.im) {
             template.zuozhe = content
             messages.push([
@@ -659,7 +659,8 @@ const adapter = new class QQBotAdapter {
         content = content.replace(/\n/g, "　")
         const match = content.match(this.toQRCodeRegExp)
         if (match) for (const url of match) {
-          const { dec, url } = await this.makeImage(await this.makeQRCode(url))
+          let { dec, url } = await this.makeImage(await this.makeQRCode(url))
+          url = await Bot.fileToUrl(url)
           content = content.replace(url, "[链接(请扫码查看)]")
           if (template.img_dec && template.img_url) {
             template.zuozhe = content
