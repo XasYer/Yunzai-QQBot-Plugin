@@ -293,7 +293,7 @@ const adapter = new class QQBotAdapter {
       }
 
       if (content) {
-        content = content.replace(/\n/g, "　")
+        content = content.replace(/\n/g, "\r")
         const match = content.match(this.toQRCodeRegExp)
         if (match) for (const url of match) {
           const msg = segment.image(await Bot.fileToUrl(await this.makeQRCode(url)))
@@ -423,16 +423,16 @@ const adapter = new class QQBotAdapter {
       if (config.markdown[data.self_id] == "raw") {
         msgs = await this.makeRawMarkdownMsg(data, msg)
       } else {
-        let needMd = false
+        /*let needMd = false
         if (Array.isArray(msg)) for (const i of msg)
           if (typeof i == "object" && i.type == "button") {
             needMd = true
             break
           }
-        if (needMd)
+        if (needMd)*/
           msgs = await this.makeMarkdownMsg(data, msg)
-        else
-          msgs = await this.makeMsg(data, msg)
+        /*else
+          msgs = await this.makeMsg(data, msg)*/
       }
     } else if (config.toMd) {
       msgs = await this.toMd(data, msg)
@@ -658,7 +658,7 @@ const adapter = new class QQBotAdapter {
       }
 
       if (content) {
-        content = content.replace(/\n/g, "　")
+        content = content.replace(/\n/g, "\r")
         const match = content.match(this.toQRCodeRegExp)
         if (match) for (const url of match) {
           let { dec, url } = await this.makeImage(await this.makeQRCode(url))
