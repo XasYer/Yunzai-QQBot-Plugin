@@ -301,7 +301,7 @@ const adapter = new class QQBotAdapter {
           messages.push(i.data)
           break
         default:
-          content += await this.makeRawMarkdownText(JSON.stringify(i))
+          content += JSON.stringify(i)
       }
 
       if (content) {
@@ -662,7 +662,7 @@ const adapter = new class QQBotAdapter {
           message.push(i.data)
           break
         default:
-          content += await this.makeRawMarkdownText(JSON.stringify(i))
+          content += JSON.stringify(i)
       }
 
       if (message.length) {
