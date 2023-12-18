@@ -295,7 +295,7 @@ const adapter = new class QQBotAdapter {
           continue
         case "node":
           for (const { message } of i.data)
-            messages.push(...(await this.makeRawMarkdownMsg(data, message)))
+            messages.push(...(await this.makeMarkdownMsg(data, message)))
           continue
         case "raw":
           messages.push(i.data)
