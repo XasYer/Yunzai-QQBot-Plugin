@@ -5,7 +5,7 @@ import fs from "node:fs"
 import path from "node:path"
 import QRCode from "qrcode"
 import imageSize from "image-size"
-import { randomUUID } from "crypto"
+import { randomUUID } from "node:crypto"
 import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
 import Runtime from "../../lib/plugins/runtime.js"
@@ -77,8 +77,8 @@ const adapter = new class QQBotAdapter {
     if (config.toMd) {
       url = await Bot.fileToUrl(buffer)
     } else
-    if (file.match?.(/^https?:\/\//)) url = file
-    else url = await Bot.fileToUrl(buffer)
+      if (file.match?.(/^https?:\/\//)) url = file
+      else url = await Bot.fileToUrl(buffer)
 
     const size = imageSize(buffer)
     return { dec: `图片 #${size.width}px #${size.height}px`, url }
@@ -86,12 +86,12 @@ const adapter = new class QQBotAdapter {
 
   makeButton(data, button) {
     const msg = {
-      id: String(Date.now()),
+      id: randomUUID(),
       render_data: {
         label: button.text,
         visited_label: button.clicked_text,
         style: 1,
-        ...button.render_data,
+        ...button.QQBot?.render_data,
       }
     }
 
@@ -101,15 +101,25 @@ const adapter = new class QQBotAdapter {
         permission: { type: 2 },
         data: button.input,
         enter: button.send,
-        ...button.action,
+        ...button.QQBot?.action,
+      }
+    else if (button.callback)
+      msg.action = {
+        type: 2,
+        permission: { type: 2 },
+        data: button.callback,
+        enter: true,
+        ...button.QQBot?.action,
       }
     else if (button.link)
       msg.action = {
         type: 0,
         permission: { type: 2 },
         data: button.link,
-        ...button.action,
+        ...button.QQBot?.action,
       }
+    else return false
+
     if (button.permission) {
       if (button.permission == "admin") {
         msg.action.permission.type = 1
@@ -129,8 +139,10 @@ const adapter = new class QQBotAdapter {
     const msgs = []
     for (const button_row of button_square) {
       const buttons = []
-      for (const button of button_row)
-        buttons.push(this.makeButton(data, button))
+      for (let button of button_row) {
+        button = this.makeButton(data, button)
+        if (button) buttons.push(button)
+      }
       msgs.push({ type: "button", buttons })
     }
     return msgs
@@ -430,7 +442,7 @@ const adapter = new class QQBotAdapter {
             break
           }
         if (needMd)*/
-          msgs = await this.makeMarkdownMsg(data, msg)
+        msgs = await this.makeMarkdownMsg(data, msg)
         /*else
           msgs = await this.makeMsg(data, msg)*/
       }
