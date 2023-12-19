@@ -782,6 +782,9 @@ export class QQBotAdapter extends plugin {
 
   DAUStat() {
     const dau = DAU[this.e.self_id]
+    if (!dau) {
+      return false
+    }
     const msg = [
       `上行消息量: ${dau.msg_count}`,
       `下行消息量: ${dau.send_count}`,
