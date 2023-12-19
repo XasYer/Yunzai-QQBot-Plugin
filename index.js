@@ -12,26 +12,7 @@ import { Bot as QQBot } from "qq-group-bot"
 import Runtime from "../../lib/plugins/runtime.js"
 
 const userIdCache = {}
-const DAU = await (async () => {
-  const msg_count = (await redis.get('QQBotDAU:msg_count')) || 0
-  const send_count = (await redis.get('QQBotDAU:send_count')) || 0
-  let data = await redis.get('QQBotDAU')
-  if (data) {
-    data = JSON.parse(data)
-    data.msg_count = msg_count
-    data.send_count = send_count
-    return data
-  } else {
-    return {
-      user_count: 0,         // 上行消息人数
-      group_count: 0,        // 上行消息群数
-      msg_count: msg_count,  // 上行消息量
-      send_count: send_count,// 下行消息量
-      user_cache: {},
-      group_cache: {}
-    }
-  }
-})()
+const DAU = {}
 const findUser_id = await (async () => {
   try {
     return (await import('../ws-plugin/model/db/index.js')).findUser_id
@@ -483,12 +464,12 @@ const adapter = new class QQBotAdapter {
         if (ret.msg_id || ret.sendResult?.msg_id)
           rets.message_id.push(ret.msg_id || ret.sendResult.msg_id)
       }
-      DAU.send_count++
+      DAU[this.uin].send_count++
       const time = moment(Date.now()).add(1, "days").format("YYYY-MM-DD 00:00:00")
-      const exTime = Math.round(
+      const EX = Math.round(
         (new Date(time).getTime() - new Date().getTime()) / 1000
       )
-      redis.setEx('QQBotDAU:send_count', exTime, DAU.send_count)
+      redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
     } catch (err) {
       Bot.makeLog("error", `发送消息错误：${Bot.String(msg)}`)
       if (err.response?.data) {
@@ -587,23 +568,23 @@ const adapter = new class QQBotAdapter {
       raw_message: event.raw_message,
     }
     let needSetRedis = false
-    DAU.msg_count++
-    if (data.group_id && !DAU.group_cache[data.group_id]) {
-      DAU.group_cache[data.group_id] = 1
-      DAU.group_count++
+    DAU[this.uin].msg_count++
+    if (data.group_id && !DAU[this.uin].group_cache[data.group_id]) {
+      DAU[this.uin].group_cache[data.group_id] = 1
+      DAU[this.uin].group_count++
       needSetRedis = true
     }
-    if (data.user_id && !DAU.user_cache[data.user_id]) {
-      DAU.user_cache[data.user_id] = 1
-      DAU.user_count++
+    if (data.user_id && !DAU[this.uin].user_cache[data.user_id]) {
+      DAU[this.uin].user_cache[data.user_id] = 1
+      DAU[this.uin].user_count++
       needSetRedis = true
     }
     const time = moment(Date.now()).add(1, "days").format("YYYY-MM-DD 00:00:00")
     const EX = Math.round(
       (new Date(time).getTime() - new Date().getTime()) / 1000
     )
-    redis.set('QQBotDAU:msg_count', DAU.msg_count * 1, { EX })
-    if (needSetRedis) redis.set('QQBotDAU', JSON.stringify(DAU), { EX })
+    redis.set(`QQBotDAU:msg_count:${this.uin}`, DAU[this.uin].msg_count * 1, { EX })
+    if (needSetRedis) redis.set(`QQBotDAU:${this.uin}`, JSON.stringify(DAU[this.uin]), { EX })
     data.bot.fl.set(data.user_id, data.sender)
     data.bot.stat.recv_msg_cnt++
     return data
@@ -711,6 +692,7 @@ const adapter = new class QQBotAdapter {
     logger.mark(`${logger.blue(`[${id}]`)} ${this.name}(${this.id}) ${this.version} 已连接`)
     Bot.em(`connect.${id}`, { self_id: id })
     this.uin = id
+    DAU[id] = await getDAU(id)
     return true
   }
 
@@ -754,7 +736,7 @@ export class QQBotAdapter extends plugin {
         },
         {
           reg: "^#[Qq]+[Bb]ot[Dd][Aa][Uu]$",
-          fnc: 'DAU',
+          fnc: 'DAUStat',
           permission: config.permission,
         }
       ]
@@ -798,15 +780,37 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  DAU() {
+  DAUStat() {
+    const dau = DAU[this.e.self_id]
     const msg = [
-      `上行消息量: ${DAU.msg_count}`,
-      `下行消息量: ${DAU.send_count}`,
-      `上行消息人数: ${DAU.user_count}`,
-      `上行消息群数: ${DAU.group_count}`
+      `上行消息量: ${dau.msg_count}`,
+      `下行消息量: ${dau.send_count}`,
+      `上行消息人数: ${dau.user_count}`,
+      `上行消息群数: ${dau.group_count}`
     ]
-    this.reply(msg.join('\n'))
+    this.reply(msg.join('\n'), true)
   }
 }
 
 logger.info(logger.green("- QQBot 适配器插件 加载完成"))
+
+async function getDAU(uin) {
+  const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
+  const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
+  let data = await redis.get(`QQBotDAU:${uin}`)
+  if (data) {
+    data = JSON.parse(data)
+    data.msg_count = msg_count
+    data.send_count = send_count
+    return data
+  } else {
+    return {
+      user_count: 0,         // 上行消息人数
+      group_count: 0,        // 上行消息群数
+      msg_count: msg_count,  // 上行消息量
+      send_count: send_count,// 下行消息量
+      user_cache: {},
+      group_cache: {}
+    }
+  }
+}
