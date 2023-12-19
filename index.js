@@ -4,6 +4,7 @@ import { config, configSave } from "./Model/config.js"
 import fs from "node:fs"
 import path from "node:path"
 import QRCode from "qrcode"
+import moment from "moment"
 import imageSize from "image-size"
 import { randomUUID } from "node:crypto"
 import { encode as encodeSilk } from "silk-wasm"
@@ -11,6 +12,26 @@ import { Bot as QQBot } from "qq-group-bot"
 import Runtime from "../../lib/plugins/runtime.js"
 
 const userIdCache = {}
+const DAU = await (async () => {
+  const msg_count = (await redis.get('QQBotDAU:msg_count')) || 0
+  const send_count = (await redis.get('QQBotDAU:send_count')) || 0
+  let data = await redis.get('QQBotDAU')
+  if (data) {
+    data = JSON.parse(data)
+    data.msg_count = msg_count
+    data.send_count = send_count
+    return data
+  } else {
+    return {
+      user_count: 0,         // 上行消息人数
+      group_count: 0,        // 上行消息群数
+      msg_count: msg_count,  // 上行消息量
+      send_count: send_count,// 下行消息量
+      user_cache: {},
+      group_cache: {}
+    }
+  }
+})()
 const findUser_id = await (async () => {
   try {
     return (await import('../ws-plugin/model/db/index.js')).findUser_id
@@ -451,8 +472,6 @@ const adapter = new class QQBotAdapter {
         /*else
           msgs = await this.makeMsg(data, msg)*/
       }
-    } else if (config.toMd) {
-      msgs = await this.toMd(data, msg)
     } else {
       msgs = await this.makeMsg(data, msg)
     }
@@ -464,6 +483,12 @@ const adapter = new class QQBotAdapter {
         if (ret.msg_id || ret.sendResult?.msg_id)
           rets.message_id.push(ret.msg_id || ret.sendResult.msg_id)
       }
+      DAU.send_count++
+      const time = moment(Date.now()).add(1, "days").format("YYYY-MM-DD 00:00:00")
+      const exTime = Math.round(
+        (new Date(time).getTime() - new Date().getTime()) / 1000
+      )
+      redis.setEx('QQBotDAU:send_count', exTime, DAU.send_count)
     } catch (err) {
       Bot.makeLog("error", `发送消息错误：${Bot.String(msg)}`)
       if (err.response?.data) {
@@ -561,6 +586,24 @@ const adapter = new class QQBotAdapter {
       message: event.message,
       raw_message: event.raw_message,
     }
+    let needSetRedis = false
+    DAU.msg_count++
+    if (data.group_id && !DAU.group_cache[data.group_id]) {
+      DAU.group_cache[data.group_id] = 1
+      DAU.group_count++
+      needSetRedis = true
+    }
+    if (data.user_id && !DAU.user_cache[data.user_id]) {
+      DAU.user_cache[data.user_id] = 1
+      DAU.user_count++
+      needSetRedis = true
+    }
+    const time = moment(Date.now()).add(1, "days").format("YYYY-MM-DD 00:00:00")
+    const EX = Math.round(
+      (new Date(time).getTime() - new Date().getTime()) / 1000
+    )
+    redis.set('QQBotDAU:msg_count', DAU.msg_count * 1, { EX })
+    if (needSetRedis) redis.set('QQBotDAU', JSON.stringify(DAU), { EX })
     data.bot.fl.set(data.user_id, data.sender)
     data.bot.stat.recv_msg_cnt++
     return data
@@ -596,139 +639,6 @@ const adapter = new class QQBotAdapter {
     }
     Bot.makeLog("info", `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
     Bot.em(`${data.post_type}.${data.message_type}`, data)
-  }
-
-  async toMd(data, msg) {
-    if (!Array.isArray(msg))
-      msg = [msg]
-    const messages = []
-    let message = []
-    let content = ""
-    let button = []
-    let template = {}
-    let reply
-
-    for (let i of msg) {
-      if (typeof i == "object")
-        i = { ...i }
-      else
-        i = { type: "text", text: i }
-
-      switch (i.type) {
-        case "record":
-          i.type = "audio"
-          i.file = await this.makeSilk(i.file)
-        case "video":
-        case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file)
-          messages.push(i)
-          break
-        case "at":
-          if (i.qq == "all")
-            content += "@everyone"
-          else
-            content += `<@${i.qq.replace(`${data.self_id}:`, "")}>`
-          break
-        case "text":
-          content += i.text
-          break
-        case "image": {
-          let { dec, url } = await this.makeImage(i.file)
-          if (template.imagesize && template.im) {
-            template.zuozhe = content
-            messages.push([
-              this.makeTemplate(data, template),
-              ...button,
-            ])
-            content = ""
-            button = []
-          }
-
-          template = {
-            title: content,
-            imagesize: dec,
-            im: url,
-          }
-          content = ""
-          break
-        } case "markdown":
-          if (typeof i.data == "object")
-            messages.push({ type: "markdown", ...i.data })
-          else
-            messages.push({ type: "markdown", content: i.data })
-          break
-        case "button":
-          button.push(...this.makeButtons(data, i.data))
-          break
-        case "face":
-          break
-        case "reply":
-          reply = i
-          continue
-        case "node":
-          for (const { message } of i.data)
-            messages.push(...(await this.toMd(data, message)))
-          continue
-        case "raw":
-          message.push(i.data)
-          break
-        default:
-          content += JSON.stringify(i)
-      }
-
-      if (message.length) {
-        messages.push(message)
-      }
-
-      if (content) {
-        content = content.replace(/\n/g, "\r")
-        const match = content.match(this.toQRCodeRegExp)
-        if (match) for (const url of match) {
-          let { dec, url } = await this.makeImage(await this.makeQRCode(url))
-          content = content.replace(url, "[链接(请扫码查看)]")
-          if (template.img_dec && template.img_url) {
-            template.zuozhe = content
-            messages.push([
-              this.makeTemplate(data, template),
-              ...button,
-            ])
-            content = ""
-            button = []
-          }
-
-          template = {
-            title: content,
-            imagesize: dec,
-            im: url,
-          }
-          content = ""
-        }
-      }
-    }
-    if (template.imagesize && template.im) {
-      template.zuozhe = content
-    } else if (content) {
-      template = { title: content, text_end: "" }
-    }
-    if (template.title || template.zuozhe || (template.imagesize && template.im))
-      messages.push([
-        this.makeTemplate(data, template),
-        ...button,
-      ])
-    if (reply) for (const i of messages)
-      i.unshift(reply)
-    return messages
-  }
-
-  makeTemplate(data, template) {
-    const params = []
-    for (const i of ["title", "imagesize", "im", "zuozhe"])
-      if (template[i]) params.push({ key: i, values: [template[i]] })
-    return {
-      type: "markdown",
-      custom_template_id: '102053559_1702454556',
-      params,
-    }
   }
 
   async connect(token) {
@@ -841,6 +751,11 @@ export class QQBotAdapter extends plugin {
           reg: "^#[Qq]+[Bb]ot设置转换\\s*(开启|关闭)$",
           fnc: 'Setting',
           permission: config.permission,
+        },
+        {
+          reg: "^#[Qq]+[Bb]ot[Dd][Aa][Uu]$",
+          fnc: 'DAU',
+          permission: config.permission,
         }
       ]
     })
@@ -881,6 +796,16 @@ export class QQBotAdapter extends plugin {
     config.toQQUin = toQQUin
     this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
     configSave(config)
+  }
+
+  DAU() {
+    const msg = [
+      `上行消息量: ${DAU.msg_count}`,
+      `下行消息量: ${DAU.send_count}`,
+      `上行消息人数: ${DAU.user_count}`,
+      `上行消息群数: ${DAU.group_count}`
+    ]
+    this.reply(msg.join('\n'))
   }
 }
 
