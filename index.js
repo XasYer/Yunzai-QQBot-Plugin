@@ -461,7 +461,13 @@ const adapter = new class QQBotAdapter {
       }
     } catch (err) {
       Bot.makeLog("error", `发送消息错误：${Bot.String(msg)}`)
-      logger.error(err)
+      if (err.response?.data) {
+        const error = { ...err.response.data }
+        error.traceID = err.response.headers?.['x-tps-trace-id']
+        logger.error(error)
+      } else {
+        logger.error(err)
+      }
     }
     return rets
   }
