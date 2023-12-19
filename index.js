@@ -234,6 +234,7 @@ const adapter = new class QQBotAdapter {
     let button = []
     let template = {}
     let reply
+    let raw = []
 
     for (let i of msg) {
       if (typeof i == "object")
@@ -298,7 +299,8 @@ const adapter = new class QQBotAdapter {
             messages.push(...(await this.makeMarkdownMsg(data, message)))
           continue
         case "raw":
-          messages.push(i.data)
+          raw.push(i.data)
+          // messages.push(i.data)
           break
         default:
           content += JSON.stringify(i)
@@ -313,6 +315,9 @@ const adapter = new class QQBotAdapter {
           content = content.replace(url, "[链接(请扫码查看)]")
         }
       }
+    }
+    if (raw) {
+      messages.push(raw)
     }
     if (template.img_dec && template.img_url) {
       template.text_end = content
