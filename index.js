@@ -735,7 +735,7 @@ export class QQBotAdapter extends plugin {
           permission: config.permission,
         },
         {
-          reg: "^#[Qq]+[Bb]ot[Dd][Aa][Uu]$",
+          reg: "^#[Qq]+[Bb]ot[Dd][Aa][Uu]",
           fnc: 'DAUStat',
           permission: config.permission,
         }
@@ -781,10 +781,9 @@ export class QQBotAdapter extends plugin {
   }
 
   DAUStat() {
-    const dau = DAU[this.e.self_id]
-    if (!dau) {
-      return false
-    }
+    const uin = this.e.msg.replace(/^#[Qq]+[Bb]ot[Dd][Aa][Uu]/, '') || this.e.self_id
+    const dau = DAU[uin]
+    if (!dau) return false
     const msg = [
       `上行消息量: ${dau.msg_count}`,
       `下行消息量: ${dau.send_count}`,
