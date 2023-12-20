@@ -212,7 +212,7 @@ const adapter = new class QQBotAdapter {
 
     if (content)
       messages.unshift([{ type: "markdown", content }, ...button])
-      
+
     if (reply) for (const i in messages) {
       if (Array.isArray(messages[i]))
         messages[i].unshift(reply)
@@ -311,7 +311,7 @@ const adapter = new class QQBotAdapter {
       }
 
       if (content) {
-        content = content.replace(/\n/g, " ")
+        content = content.replace(/\n/g, "\r")
         const match = content.match(this.toQRCodeRegExp)
         if (match) for (const url of match) {
           const msg = segment.image(await Bot.fileToUrl(await this.makeQRCode(url)))
