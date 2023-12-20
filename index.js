@@ -472,9 +472,10 @@ const adapter = new class QQBotAdapter {
       redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
     } catch (err) {
       Bot.makeLog("error", `发送消息错误：${Bot.String(msg)}`)
+      Bot.makeLog("error", `错误消息：${Bot.String(i)}`)
       if (err.response?.data) {
         const error = { ...err.response.data }
-        error.traceID = err.response.headers?.['x-tps-trace-id']
+        error.trace_id = err.response.headers?.['x-tps-trace-id'] || error.trace_id
         logger.error(error)
       } else {
         logger.error(err)
