@@ -623,7 +623,7 @@ const adapter = new class QQBotAdapter {
       const user_id = await findUser_id({ user_id: data.user_id })
       if (user_id?.custom) {
         userIdCache[user_id.custom] = data.user_id
-        data.user_id = user_id.custom
+        data.sender.user_id = user_id.custom
       }
       // const group_id = await findGroup_id({ group_id: data.group_id })
       // if (group_id?.custom) {
