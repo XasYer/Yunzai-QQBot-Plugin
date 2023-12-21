@@ -5,7 +5,9 @@ import fs from "node:fs"
 import path from "node:path"
 import QRCode from "qrcode"
 import moment from "moment"
+import { join } from "node:path"
 import imageSize from "image-size"
+import schedule from "node-schedule"
 import { randomUUID } from "node:crypto"
 import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
@@ -466,7 +468,9 @@ const adapter = new class QQBotAdapter {
     }
 
     for (const i of msgs) try {
+      Bot.makeLog("debug", ["发送消息", i], data.self_id)
       const ret = await send(i)
+      Bot.makeLog("debug", ["发送消息返回", ret], data.self_id)
       if (ret) {
         rets.data.push(ret)
         if (ret.msg_id || ret.sendResult?.msg_id)
@@ -479,14 +483,11 @@ const adapter = new class QQBotAdapter {
       )
       redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
     } catch (err) {
-      Bot.makeLog("error", `发送消息错误：${Bot.String(msg)}`)
       if (err.response?.data) {
-        const error = { ...err.response.data }
-        error.trace_id = err.response.headers?.['x-tps-trace-id'] || error.trace_id
-        logger.error(error)
-      } else {
-        logger.error(err)
+        const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
+        err = { ...err.response.data, trace_id }
       }
+      Bot.makeLog("error", [`发送消息错误：${Bot.String(msg)}\n`, err], data.self_id)
     }
     return rets
   }
@@ -561,7 +562,7 @@ const adapter = new class QQBotAdapter {
 
   makeMessage(id, event) {
     const data = {
-      event,
+      raw: event,
       bot: Bot[id],
       self_id: id,
       post_type: event.post_type,
@@ -612,7 +613,7 @@ const adapter = new class QQBotAdapter {
     data.message_type = "group"
     data.bot.gl.set(data.group_id, {
       group_id: data.group_id,
-      group_openid: data.event.group_openid,
+      group_openid: event.group_openid,
     })
     data.reply = msg => this.sendReplyMsg(data, msg, event)
     if (config.toQQUin && findUser_id) {
@@ -805,6 +806,8 @@ export class QQBotAdapter extends plugin {
 logger.info(logger.green("- QQBot 适配器插件 加载完成"))
 
 async function getDAU(uin) {
+  const date = new Date()
+  const time = date.toISOString().slice(0, 10)
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
   let data = await redis.get(`QQBotDAU:${uin}`)
@@ -812,6 +815,7 @@ async function getDAU(uin) {
     data = JSON.parse(data)
     data.msg_count = msg_count
     data.send_count = send_count
+    data.time = time
     return data
   } else {
     return {
@@ -820,7 +824,33 @@ async function getDAU(uin) {
       msg_count: msg_count,  // 上行消息量
       send_count: send_count,// 下行消息量
       user_cache: {},
-      group_cache: {}
+      group_cache: {},
+      time
     }
   }
 }
+
+// 每天零点清除DAU统计并保存到文件
+schedule.scheduleJob('0 0 0 * * ?', () => {
+  const date = new Date()
+  const time = date.toISOString().slice(0, 10)
+  const path = join(process.cwd(), 'data', 'QQBotDAU')
+  if (!fs.existsSync(path)) fs.mkdirSync(path)
+  for (const key in DAU) {
+    try {
+      const data = DAU[key]
+      delete data.user_cache
+      delete data.group_cache
+      fs.writeFile(join(path, key, `${data.time}.json`), JSON.stringify(data), 'utf-8', () => { })
+      DAU[key] = {
+        user_count: 0,
+        group_count: 0,
+        msg_count: 0,
+        send_count: 0,
+        user_cache: {},
+        group_cache: {},
+        time
+      }
+    } catch (error) { }
+  }
+})
