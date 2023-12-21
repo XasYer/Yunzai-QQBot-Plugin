@@ -136,7 +136,7 @@ const adapter = new class QQBotAdapter {
         if (!Array.isArray(button.permission))
           button.permission = [button.permission]
         for (const id of button.permission)
-        msg.action.permission.specify_user_ids.push(id.replace(`${data.self_id}${this.sep}`, ""))
+          msg.action.permission.specify_user_ids.push(id.replace(`${data.self_id}${this.sep}`, ""))
       }
     }
     return msg
@@ -183,7 +183,7 @@ const adapter = new class QQBotAdapter {
           if (i.qq == "all")
             content += "@everyone"
           else
-          content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, "")}>`
+            content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, "")}>`
           break
         case "text":
           content += await this.makeRawMarkdownText(i.text)
@@ -267,7 +267,7 @@ const adapter = new class QQBotAdapter {
           if (i.qq == "all")
             content += "@everyone"
           else
-          content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, "")}>`
+            content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, "")}>`
           break
         case "text":
           content += i.text
