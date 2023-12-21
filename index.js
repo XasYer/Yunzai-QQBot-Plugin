@@ -40,6 +40,9 @@ const adapter = new class QQBotAdapter {
       this.toQRCodeRegExp = config.toQRCode ? /https?:\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?/g : false
     else
       this.toQRCodeRegExp = new RegExp(config.toQRCode, "g")
+
+    this.sep = ":"
+    if (process.platform == "win32") this.sep = ""
   }
 
   async makeSilk(file) {
@@ -133,7 +136,7 @@ const adapter = new class QQBotAdapter {
         if (!Array.isArray(button.permission))
           button.permission = [button.permission]
         for (const id of button.permission)
-          msg.action.permission.specify_user_ids.push(id.replace(`${data.self_id}:`, ""))
+        msg.action.permission.specify_user_ids.push(id.replace(`${data.self_id}${this.sep}`, ""))
       }
     }
     return msg
@@ -180,7 +183,7 @@ const adapter = new class QQBotAdapter {
           if (i.qq == "all")
             content += "@everyone"
           else
-            content += `<@${i.qq.replace(`${data.self_id}:`, "")}>`
+          content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, "")}>`
           break
         case "text":
           content += await this.makeRawMarkdownText(i.text)
@@ -264,7 +267,7 @@ const adapter = new class QQBotAdapter {
           if (i.qq == "all")
             content += "@everyone"
           else
-            content += `<@${i.qq.replace(`${data.self_id}:`, "")}>`
+          content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, "")}>`
           break
         case "text":
           content += i.text
@@ -361,7 +364,7 @@ const adapter = new class QQBotAdapter {
 
       switch (i.type) {
         case "at":
-          // i = { type: 'text', text: '\n' }
+          //i.user_id = i.qq.replace(`${data.self_id}${this.sep}`, "")
           continue
         case "text":
         case "face":
@@ -517,7 +520,7 @@ const adapter = new class QQBotAdapter {
       ...Bot[id].fl.get(user_id),
       self_id: id,
       bot: Bot[id],
-      user_id: user_id.replace(`${id}:`, ""),
+      user_id: user_id.replace(`${id}${this.sep}`, ""),
     }
     return {
       ...i,
@@ -536,8 +539,8 @@ const adapter = new class QQBotAdapter {
       ...Bot[id].fl.get(user_id),
       self_id: id,
       bot: Bot[id],
-      user_id: user_id.replace(`${id}:`, ""),
-      group_id: group_id.replace(`${id}:`, ""),
+      user_id: user_id.replace(`${id}${this.sep}`, ""),
+      group_id: group_id.replace(`${id}${this.sep}`, ""),
     }
     return {
       ...this.pickFriend(id, user_id),
@@ -550,7 +553,7 @@ const adapter = new class QQBotAdapter {
       ...Bot[id].gl.get(group_id),
       self_id: id,
       bot: Bot[id],
-      group_id: group_id.replace(`${id}:`, ""),
+      group_id: group_id.replace(`${id}${this.sep}`, ""),
     }
     return {
       ...i,
@@ -567,11 +570,11 @@ const adapter = new class QQBotAdapter {
       self_id: id,
       post_type: event.post_type,
       message_id: event.message_id,
-      user_id: `${id}:${event.user_id}`,
-      group_id: `${id}:${event.group_id}`,
+      get user_id() { return this.sender.user_id },
+      group_id: `${id}${this.sep}${event.group_id}`,
       sender: {
-        user_id: `${id}:${event.sender.user_id}`,
-        user_openid: `${id}:${event.sender.user_openid}`
+        user_id: `${id}${this.sep}${event.sender.user_id}`,
+        user_openid: `${id}${this.sep}${event.sender.user_openid}`
       },
       message: event.message,
       raw_message: event.raw_message,
@@ -841,7 +844,6 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
       const data = DAU[key]
       delete data.user_cache
       delete data.group_cache
-      fs.writeFile(join(path, key, `${data.time}.json`), JSON.stringify(data), 'utf-8', () => { })
       DAU[key] = {
         user_count: 0,
         group_count: 0,
@@ -851,6 +853,10 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
         group_cache: {},
         time
       }
-    } catch (error) { }
+      if (!fs.existsSync(join(path, key))) fs.mkdirSync(join(path, key))
+      fs.writeFile(join(path, key, `${data.time}.json`), JSON.stringify(data), 'utf-8', () => { })
+    } catch (error) {
+      logger.error('清除DAU数据出错,key: ' + key, error)
+    }
   }
 })
