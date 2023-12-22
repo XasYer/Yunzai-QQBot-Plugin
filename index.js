@@ -272,6 +272,24 @@ const adapter = new class QQBotAdapter {
         case "text":
           content += i.text
           break
+        case "node":
+          if (toImg) {
+            const e = {
+              reply: (msg) => {
+                i = msg
+              },
+              bot: {
+                uin: this.uin,
+                nickname: Bot[this.uin].sdk.nickname
+              }
+            }
+            e.runtime = new Runtime(e)
+            await toImg(i.data, e, true)
+          } else {
+            for (const { message } of i.data)
+              messages.push(...(await this.makeMarkdownMsg(data, message)))
+            continue
+          }
         case "image": {
           const { dec, url } = await this.makeImage(i.file)
 
@@ -302,10 +320,6 @@ const adapter = new class QQBotAdapter {
           break
         case "reply":
           reply = i
-          continue
-        case "node":
-          for (const { message } of i.data)
-            messages.push(...(await this.makeMarkdownMsg(data, message)))
           continue
         case "raw":
           // messages.push(i.data)
