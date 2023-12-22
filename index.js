@@ -465,46 +465,45 @@ const adapter = new class QQBotAdapter {
   async sendMsg(data, send, msg) {
     const rets = { message_id: [], data: [] }
     let msgs
-    if (config.markdown[data.self_id]) {
-      if (config.markdown[data.self_id] == "raw") {
-        msgs = await this.makeRawMarkdownMsg(data, msg)
-      } else {
-        /*let needMd = false
-        if (Array.isArray(msg)) for (const i of msg)
-          if (typeof i == "object" && i.type == "button") {
-            needMd = true
-            break
-          }
-        if (needMd)*/
-        msgs = await this.makeMarkdownMsg(data, msg)
-        /*else
-          msgs = await this.makeMsg(data, msg)*/
+
+    const sendMsg = async () => {
+      for (const i of msgs) try {
+        Bot.makeLog("debug", ["发送消息", i], data.self_id)
+        const ret = await send(i)
+        Bot.makeLog("debug", ["发送消息返回", ret], data.self_id)
+        if (ret) {
+          rets.data.push(ret)
+          if (ret.msg_id || ret.sendResult?.msg_id)
+            rets.message_id.push(ret.msg_id || ret.sendResult.msg_id)
+        }
+        DAU[this.uin].send_count++
+        const time = moment(Date.now()).add(1, "days").format("YYYY-MM-DD 00:00:00")
+        const EX = Math.round(
+          (new Date(time).getTime() - new Date().getTime()) / 1000
+        )
+        redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
+      } catch (err) {
+        if (err.response?.data) {
+          const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
+          err = { ...err.response.data, trace_id }
+        }
+        Bot.makeLog("error", [`发送消息错误：${Bot.String(msg)}\n`, err], data.self_id)
+        return false
       }
+    }
+
+    if (config.markdown[data.self_id]) {
+      if (config.markdown[data.self_id] == "raw")
+        msgs = await this.makeRawMarkdownMsg(data, msg)
+      else
+        msgs = await this.makeMarkdownMsg(data, msg)
     } else {
       msgs = await this.makeMsg(data, msg)
     }
 
-    for (const i of msgs) try {
-      Bot.makeLog("debug", ["发送消息", i], data.self_id)
-      const ret = await send(i)
-      Bot.makeLog("debug", ["发送消息返回", ret], data.self_id)
-      if (ret) {
-        rets.data.push(ret)
-        if (ret.msg_id || ret.sendResult?.msg_id)
-          rets.message_id.push(ret.msg_id || ret.sendResult.msg_id)
-      }
-      DAU[this.uin].send_count++
-      const time = moment(Date.now()).add(1, "days").format("YYYY-MM-DD 00:00:00")
-      const EX = Math.round(
-        (new Date(time).getTime() - new Date().getTime()) / 1000
-      )
-      redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
-    } catch (err) {
-      if (err.response?.data) {
-        const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
-        err = { ...err.response.data, trace_id }
-      }
-      Bot.makeLog("error", [`发送消息错误：${Bot.String(msg)}\n`, err], data.self_id)
+    if (await sendMsg() === false) {
+      msgs = await this.makeMsg(data, msg)
+      await sendMsg()
     }
     return rets
   }
