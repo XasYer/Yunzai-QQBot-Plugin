@@ -42,7 +42,7 @@ const adapter = new class QQBotAdapter {
       this.toQRCodeRegExp = new RegExp(config.toQRCode, "g")
 
     this.sep = ":"
-    if (process.platform == "win32") this.sep = ""
+    if (process.platform == "win32") this.sep = config.sep || ""
   }
 
   async makeSilk(file) {
