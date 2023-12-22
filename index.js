@@ -176,7 +176,7 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeSilk(i.file)
         case "video":
         case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i.type)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
           messages.push(i)
           break
         case "at":
@@ -260,7 +260,7 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeSilk(i.file)
         case "video":
         case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i.type)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
           messages.push(i)
           break
         case "at":
@@ -392,7 +392,7 @@ const adapter = new class QQBotAdapter {
         case "video":
         case "file":
           if (i.file)
-            i.file = await Bot.fileToUrl(i.file, i.type)
+            i.file = await Bot.fileToUrl(i.file, {}, i.type)
           if (message.some(s => sendType.includes(s.type))) {
             messages.push(message)
             message = []
@@ -471,11 +471,10 @@ const adapter = new class QQBotAdapter {
         Bot.makeLog("debug", ["发送消息", i], data.self_id)
         const ret = await send(i)
         Bot.makeLog("debug", ["发送消息返回", ret], data.self_id)
-        if (ret) {
-          rets.data.push(ret)
-          if (ret.msg_id || ret.sendResult?.msg_id)
-            rets.message_id.push(ret.msg_id || ret.sendResult.msg_id)
-        }
+
+        rets.data.push(ret)
+        if (ret.msg_id || ret.sendResult?.msg_id)
+          rets.message_id.push(ret.msg_id || ret.sendResult.msg_id)
         DAU[this.uin].send_count++
         const time = moment(Date.now()).add(1, "days").format("YYYY-MM-DD 00:00:00")
         const EX = Math.round(
