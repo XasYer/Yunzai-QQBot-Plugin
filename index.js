@@ -176,7 +176,7 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeSilk(i.file)
         case "video":
         case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, i.type)
           messages.push(i)
           break
         case "at":
@@ -260,7 +260,7 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeSilk(i.file)
         case "video":
         case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, i.type)
           messages.push(i)
           break
         case "at":
@@ -392,7 +392,7 @@ const adapter = new class QQBotAdapter {
         case "video":
         case "file":
           if (i.file)
-            i.file = await Bot.fileToUrl(i.file)
+            i.file = await Bot.fileToUrl(i.file, i.type)
           if (message.some(s => sendType.includes(s.type))) {
             messages.push(message)
             message = []
