@@ -852,7 +852,7 @@ function getNowDate() {
 }
 
 // 每天零点清除DAU统计并保存到文件
-schedule.scheduleJob('5 0 0 * * ?', () => {
+schedule.scheduleJob('0 0 0 * * ?', () => {
   const time = getNowDate()
   const path = join(process.cwd(), 'data', 'QQBotDAU')
   if (!fs.existsSync(path)) fs.mkdirSync(path)
