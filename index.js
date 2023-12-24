@@ -822,8 +822,7 @@ export class QQBotAdapter extends plugin {
 logger.info(logger.green("- QQBot 适配器插件 加载完成"))
 
 async function getDAU(uin) {
-  const date = new Date()
-  const time = date.toISOString().slice(0, 10)
+  const time = getNowDate()
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
   let data = await redis.get(`QQBotDAU:${uin}`)
@@ -846,10 +845,15 @@ async function getDAU(uin) {
   }
 }
 
+function getNowDate() {
+  const date = new Date()
+  const time = date.toLocaleString("en-US", { timeZone: "Asia/Shanghai" });
+  return time.replace(/(\d+?)\/(\d+?)\/(\d+?),.*/, '$3-$1-$2')
+}
+
 // 每天零点清除DAU统计并保存到文件
 schedule.scheduleJob('5 0 0 * * ?', () => {
-  const date = new Date()
-  const time = date.toISOString().slice(0, 10)
+  const time = getNowDate()
   const path = join(process.cwd(), 'data', 'QQBotDAU')
   if (!fs.existsSync(path)) fs.mkdirSync(path)
   for (const key in DAU) {
