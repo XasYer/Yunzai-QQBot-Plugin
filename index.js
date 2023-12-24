@@ -809,6 +809,7 @@ export class QQBotAdapter extends plugin {
     const dau = DAU[uin]
     if (!dau) return false
     const msg = [
+      dau.time,
       `上行消息量: ${dau.msg_count}`,
       `下行消息量: ${dau.send_count}`,
       `上行消息人数: ${dau.user_count}`,
@@ -846,7 +847,7 @@ async function getDAU(uin) {
 }
 
 // 每天零点清除DAU统计并保存到文件
-schedule.scheduleJob('0 0 0 * * ?', () => {
+schedule.scheduleJob('5 0 0 * * ?', () => {
   const date = new Date()
   const time = date.toISOString().slice(0, 10)
   const path = join(process.cwd(), 'data', 'QQBotDAU')
