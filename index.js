@@ -827,7 +827,7 @@ export class QQBotAdapter extends plugin {
       let yesterday = date.toISOString().slice(0, 10);
       let yesterdayDau = fs.readFileSync(join(path, `${yesterday}.json`), 'utf-8')
       yesterdayDau = JSON.parse(yesterdayDau)
-      msg.push([
+      msg.push(...[
         yesterdayDau.time,
         `上行消息量: ${yesterdayDau.msg_count}`,
         `下行消息量: ${yesterdayDau.send_count}`,
@@ -843,9 +843,9 @@ export class QQBotAdapter extends plugin {
     }
     let day_count = 0
     const date = new Date(dau.time)
-    for (let i = 1; i < 7; i++) {
-      const time = date.toISOString().slice(0, 10)
+    for (let i = 1; i <= 7; i++) {
       date.setDate(date.getDate() - 1)
+      const time = date.toISOString().slice(0, 10)
       try {
         let dayDau = fs.readFileSync(join(path, `${time}.json`), 'utf-8')
         dayDau = JSON.parse(dayDau)
