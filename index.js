@@ -150,7 +150,7 @@ const adapter = new class QQBotAdapter {
       const buttons = []
       for (let button of button_row) {
         button = this.makeButton(data, button,
-          (random+msgs.length+buttons.length)%2)
+          (random + msgs.length + buttons.length) % 2)
         if (button) buttons.push(button)
       }
       if (buttons.length)
@@ -819,6 +819,54 @@ export class QQBotAdapter extends plugin {
       `上行消息人数: ${dau.user_count}`,
       `上行消息群数: ${dau.group_count}`
     ]
+    const path = join(process.cwd(), 'data', 'QQBotDAU', uin)
+    // 昨日DAU
+    try {
+      let date = new Date(dau.time);
+      date.setDate(date.getDate() - 1);
+      let yesterday = date.toISOString().slice(0, 10);
+      let yesterdayDau = fs.readFileSync(join(path, `${yesterday}.json`), 'utf-8')
+      yesterdayDau = JSON.parse(yesterdayDau)
+      msg.push([
+        yesterdayDau.time,
+        `上行消息量: ${yesterdayDau.msg_count}`,
+        `下行消息量: ${yesterdayDau.send_count}`,
+        `上行消息人数: ${yesterdayDau.user_count}`,
+        `上行消息群数: ${yesterdayDau.group_count}`
+      ])
+    } catch (error) { }
+    const totalDAU = {
+      user_count: 0,
+      group_count: 0,
+      msg_count: 0,
+      send_count: 0
+    }
+    const day_count = 0
+    const date = new Date(dau.time)
+    for (const i = 1; i < 7; i++) {
+      const time = date.toISOString().slice(0, 10)
+      date.setDate(date.getDate() - 1)
+      try {
+        let dayDau = fs.readFileSync(join(path, `${time}.json`), 'utf-8')
+        dayDau = JSON.parse(dayDau)
+        for (const i in totalDAU) {
+          if (dayDau[i]) {
+            totalDAU[i] += dayDau[i]
+          }
+        }
+        day_count++
+      } catch (error) { }
+    }
+    for (const i in totalDAU) {
+      totalDAU[i] = Math.floor(totalDAU[i] / day_count)
+    }
+    msg.push(...[
+      `最近${numToChinese[day_count] || day_count}天平均DAU`,
+      `上行消息量: ${totalDAU.msg_count}`,
+      `下行消息量: ${totalDAU.send_count}`,
+      `上行消息人数: ${totalDAU.user_count}`,
+      `上行消息群数: ${totalDAU.group_count}`
+    ])
     this.reply(msg.join('\n'), true)
   }
 }
@@ -881,3 +929,15 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
     }
   }
 })
+
+let numToChinese = {
+  1: '一',
+  2: '二',
+  3: '三',
+  4: '四',
+  5: '五',
+  6: '六',
+  7: '七',
+  8: '八',
+  9: '九'
+}
