@@ -859,16 +859,18 @@ export class QQBotAdapter extends plugin {
         day_count++
       } catch (error) { }
     }
-    for (const i in totalDAU) {
-      totalDAU[i] = Math.floor(totalDAU[i] / day_count)
+    if (day_count > 0) {
+      for (const i in totalDAU) {
+        totalDAU[i] = Math.floor(totalDAU[i] / day_count)
+      }
+      msg.push(...[
+        `最近${numToChinese[day_count] || day_count}天平均DAU`,
+        `上行消息量: ${totalDAU.msg_count}`,
+        `下行消息量: ${totalDAU.send_count}`,
+        `上行消息人数: ${totalDAU.user_count}`,
+        `上行消息群数: ${totalDAU.group_count}`
+      ])
     }
-    msg.push(...[
-      `最近${numToChinese[day_count] || day_count}天平均DAU`,
-      `上行消息量: ${totalDAU.msg_count}`,
-      `下行消息量: ${totalDAU.send_count}`,
-      `上行消息人数: ${totalDAU.user_count}`,
-      `上行消息群数: ${totalDAU.group_count}`
-    ])
     this.reply(msg.join('\n'), true)
   }
 }
