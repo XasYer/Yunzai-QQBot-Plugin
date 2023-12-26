@@ -841,9 +841,9 @@ export class QQBotAdapter extends plugin {
       msg_count: 0,
       send_count: 0
     }
-    const day_count = 0
+    let day_count = 0
     const date = new Date(dau.time)
-    for (const i = 1; i < 7; i++) {
+    for (let i = 1; i < 7; i++) {
       const time = date.toISOString().slice(0, 10)
       date.setDate(date.getDate() - 1)
       try {
