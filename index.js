@@ -817,7 +817,8 @@ export class QQBotAdapter extends plugin {
       `上行消息量: ${dau.msg_count}`,
       `下行消息量: ${dau.send_count}`,
       `上行消息人数: ${dau.user_count}`,
-      `上行消息群数: ${dau.group_count}`
+      `上行消息群数: ${dau.group_count}`,
+      ''
     ]
     const path = join(process.cwd(), 'data', 'QQBotDAU', uin)
     // 昨日DAU
@@ -832,7 +833,8 @@ export class QQBotAdapter extends plugin {
         `上行消息量: ${yesterdayDau.msg_count}`,
         `下行消息量: ${yesterdayDau.send_count}`,
         `上行消息人数: ${yesterdayDau.user_count}`,
-        `上行消息群数: ${yesterdayDau.group_count}`
+        `上行消息群数: ${yesterdayDau.group_count}`,
+        ''
       ])
     } catch (error) { }
     const totalDAU = {
@@ -843,7 +845,7 @@ export class QQBotAdapter extends plugin {
     }
     let day_count = 0
     const date = new Date(dau.time)
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 1; i <= 30; i++) {
       date.setDate(date.getDate() - 1)
       const time = date.toISOString().slice(0, 10)
       try {
@@ -930,14 +932,12 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
   }
 })
 
-let numToChinese = {
-  1: '一',
-  2: '二',
-  3: '三',
-  4: '四',
-  5: '五',
-  6: '六',
-  7: '七',
-  8: '八',
-  9: '九'
-}
+// 硬核
+const numToChinese = {
+  1: '一', 2: '二', 3: '三', 4: '四', 5: '五',
+  6: '六', 7: '七', 8: '八', 9: '九', 10: '十',
+  11: '十一', 12: '十二', 13: '十三', 14: '十四', 15: '十五',
+  16: '十六', 17: '十七', 18: '十八', 19: '十九', 20: '二十',
+  21: '二十一', 22: '二十二', 23: '二十三', 24: '二十四', 25: '二十五',
+  26: '二十六', 27: '二十七', 28: '二十八', 29: '二十九', 30: '三十'
+};
