@@ -859,7 +859,7 @@ export class QQBotAdapter extends plugin {
         day_count++
       } catch (error) { }
     }
-    if (day_count > 0) {
+    if (day_count > 1) {
       for (const i in totalDAU) {
         totalDAU[i] = Math.floor(totalDAU[i] / day_count)
       }
