@@ -853,7 +853,7 @@ export class QQBotAdapter extends plugin {
         dayDau = JSON.parse(dayDau)
         for (const i in totalDAU) {
           if (dayDau[i]) {
-            totalDAU[i] += dayDau[i]
+            totalDAU[i] += Number(dayDau[i]) || String(dayDau[i])
           }
         }
         day_count++
@@ -884,8 +884,8 @@ async function getDAU(uin) {
   let data = await redis.get(`QQBotDAU:${uin}`)
   if (data) {
     data = JSON.parse(data)
-    data.msg_count = msg_count
-    data.send_count = send_count
+    data.msg_count = Number(msg_count)
+    data.send_count = Number(send_count)
     data.time = time
     return data
   } else {
