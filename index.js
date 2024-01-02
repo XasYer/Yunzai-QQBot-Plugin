@@ -288,7 +288,7 @@ const adapter = new class QQBotAdapter {
               }
             }
             e.runtime = new Runtime(e)
-            await toImg(i.data, e, true)
+            await toImg(i.data, e)
           } else {
             for (const { message } of i.data)
               messages.push(...(await this.makeMarkdownMsg(data, message)))
@@ -426,7 +426,7 @@ const adapter = new class QQBotAdapter {
               }
             }
             e.runtime = new Runtime(e)
-            await toImg(i.data, e, true)
+            await toImg(i.data, e)
             i.file = await Bot.fileToUrl(i.file)
             if (message.some(s => sendType.includes(s.type))) {
               messages.push(message)
