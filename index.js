@@ -903,11 +903,9 @@ async function getDAU(uin) {
 
 function getNowDate() {
   const date = new Date()
-  const time = date.toLocaleString("en-US", { timeZone: "Asia/Shanghai" });
-  const now = /(\d+?)\/(\d+?)\/(\d+?),.*/.exec(time)
-  const month = now[1].length == 2 ? now[1] : '0' + now[1]
-  const day = now[2].length == 2 ? now[2] : '0' + now[2]
-  return `${now[3]}-${month}-${day}`
+  const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
+  return `${year}-${month}-${day}`
 }
 
 // 每天零点清除DAU统计并保存到文件
