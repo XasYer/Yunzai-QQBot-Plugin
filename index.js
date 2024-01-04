@@ -904,7 +904,10 @@ async function getDAU(uin) {
 function getNowDate() {
   const date = new Date()
   const time = date.toLocaleString("en-US", { timeZone: "Asia/Shanghai" });
-  return time.replace(/(\d+?)\/(\d+?)\/(\d+?),.*/, '$3-$1-$2')
+  const now = /(\d+?)\/(\d+?)\/(\d+?),.*/.exec(time)
+  const month = now[1].length == 2 ? now[1] : '0' + now[1]
+  const day = now[2].length == 2 ? now[2] : '0' + now[2]
+  return `${now[3]}-${month}-${day}`
 }
 
 // 每天零点清除DAU统计并保存到文件
