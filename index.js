@@ -184,7 +184,7 @@ const adapter = new class QQBotAdapter {
           messages.push(i)
           break
         case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, i, type)
           content += await this.makeRawMarkdownText(`文件：${i.file}`, button)
           break
         case "at":
@@ -271,7 +271,7 @@ const adapter = new class QQBotAdapter {
           messages.push(i)
           break
         case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
           button.push(...this.makeButtons(data, [[{ text: i.name || i.file, link: i.file }]]))
           content += "[文件(请点击按钮查看)]"
           break
@@ -401,14 +401,14 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeSilk(i.file)
         case "image":
         case "video":
-          if (i.file) i.file = await Bot.fileToUrl(i.file)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
           if (message.some(s => sendType.includes(s.type))) {
             messages.push(message)
             message = []
           }
           break
         case "file":
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
           i = { type: "text", text: `文件：${i.file}` }
           break
         case "reply":
