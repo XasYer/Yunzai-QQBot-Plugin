@@ -34,6 +34,7 @@ const adapter = new class QQBotAdapter {
   constructor() {
     this.id = "QQBot"
     this.name = "QQBot"
+    this.path = "data/QQBot/"
     this.version = `qq-group-bot ${config.package.dependencies["qq-group-bot"].replace("^", "v")}`
 
     if (typeof config.toQRCode == "boolean")
@@ -643,6 +644,12 @@ const adapter = new class QQBotAdapter {
       group_id: data.group_id,
       group_openid: event.group_openid,
     })
+    let gml = data.bot.gml.get(data.group_id)
+    if (!gml) {
+      gml = new Map
+      data.bot.gml.set(data.group_id, gml)
+    }
+    gml.set(data.user_id, data.sender)
     data.reply = msg => this.sendReplyMsg(data, msg, event)
     if (config.toQQUin && findUser_id) {
       const user_id = await findUser_id({ user_id: data.user_id })
@@ -657,6 +664,18 @@ const adapter = new class QQBotAdapter {
     }
     Bot.makeLog("info", `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
     Bot.em(`${data.post_type}.${data.message_type}`, data)
+  }
+
+  getFriendMap(id) {
+    return Bot.getMap(`${this.path}${id}/Friend`)
+  }
+
+  getGroupMap(id) {
+    return Bot.getMap(`${this.path}${id}/Group`)
+  }
+
+  getMemberMap(id) {
+    return Bot.getMap(`${this.path}${id}/Member`)
   }
 
   async connect(token) {
@@ -708,13 +727,13 @@ const adapter = new class QQBotAdapter {
       pickFriend: user_id => this.pickFriend(id, user_id),
       get pickUser() { return this.pickFriend },
       getFriendMap() { return this.fl },
-      fl: new Map,
+      fl: this.getFriendMap(id),
 
       pickMember: (group_id, user_id) => this.pickMember(id, group_id, user_id),
       pickGroup: group_id => this.pickGroup(id, group_id),
       getGroupMap() { return this.gl },
-      gl: new Map,
-      gml: new Map,
+      gl: this.getGroupMap(id),
+      gml: this.getMemberMap(id),
     }
 
     await Bot[id].login()
