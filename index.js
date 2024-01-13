@@ -281,8 +281,8 @@ const adapter = new class QQBotAdapter {
           if (i.qq == 'all') {
             content += '@everyone'
           } else {
-            if (config.toQQUin && userIdCache[user_id]) {
-              i.qq = userIdCache[user_id]
+            if (config.toQQUin && userIdCache[i.qq]) {
+              i.qq = userIdCache[i.qq]
             }
             content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, '')}>`
           }
