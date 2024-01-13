@@ -13,13 +13,15 @@ TRSS-Yunzai QQBot 适配器 插件
 
 </div>
 
-## 自用fork版
+# Tip
+
+建议使用TRSS原版,此版本为`个人自用`版,会在`任意时间`直接进行更改,且`不会`与TRSS一致
+
+## 自用Fork版
 
 1. 转发消息改为渲染成图片,需要安装`ws-plugin`
 2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
-```
-git clone https://gitee.com/xiaoye12123/Yunzai-QQBot-Plugin.git ./plugins/QQBot-Plugin
-```
+3. `#QQBotDAU` and `#QQBotDAUpro`
 
 ## 高阶能力
 

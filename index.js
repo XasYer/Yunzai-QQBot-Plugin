@@ -278,10 +278,14 @@ const adapter = new class QQBotAdapter {
           content += '[文件(请点击按钮查看)]'
           break
         case 'at':
-          if (i.qq == 'all')
+          if (i.qq == 'all') {
             content += '@everyone'
-          else
+          } else {
+            if (config.toQQUin && userIdCache[user_id]) {
+              i.qq = userIdCache[user_id]
+            }
             content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, '')}>`
+          }
           break
         case 'text':
           content += i.text
@@ -402,7 +406,10 @@ const adapter = new class QQBotAdapter {
 
       switch (i.type) {
         case 'at':
-          //i.user_id = i.qq.replace(`${data.self_id}${this.sep}`, "")
+          // if (config.toQQUin && userIdCache[user_id]) {
+          //   i.qq = userIdCache[user_id]
+          // }
+          //i.qq = i.qq.replace(`${data.self_id}${this.sep}`, "")
           continue
         case 'text':
         case 'face':
@@ -549,10 +556,8 @@ const adapter = new class QQBotAdapter {
   }
 
   pickFriend(id, user_id) {
-    if (config.toQQUin) {
-      if (userIdCache[user_id]) {
-        user_id = userIdCache[user_id]
-      }
+    if (config.toQQUin && userIdCache[user_id]) {
+      user_id = userIdCache[user_id]
     }
     const i = {
       ...Bot[id].fl.get(user_id),
@@ -568,10 +573,8 @@ const adapter = new class QQBotAdapter {
   }
 
   pickMember(id, group_id, user_id) {
-    if (config.toQQUin) {
-      if (userIdCache[user_id]) {
-        user_id = userIdCache[user_id]
-      }
+    if (config.toQQUin && userIdCache[user_id]) {
+      user_id = userIdCache[user_id]
     }
     const i = {
       ...Bot[id].fl.get(user_id),
