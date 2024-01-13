@@ -22,7 +22,7 @@
       </div>
       <div class="data-box">
         <div class="average">
-          <div class="head">最近{{totalDAU.days}}平均DAU</div>
+          <div class="head">最近{{totalDAU.days}}日平均DAU</div>
           <div class="primogems">
             <div class="icon-user"></div>
             <div class="text">上行消息人数：{{totalDAU.user_count}}</div>
@@ -81,6 +81,35 @@
         data: daus[month],
         xField: 'time',
         yField: ['linecount', 'count'],
+        meta: {
+          time: {
+            alias: '日期',
+            formatter: (v) => v.slice(5)
+          }
+        },
+        xAxis: {
+          label: {
+            style: {
+              fill: 'black',
+              fontSize: 14,
+              fontWeight: 400,
+            }
+          }
+        },
+        yAxis: {
+          linecount: {
+            style: {
+              fontSize: 14,
+              fontWeight: 300,
+            }
+          },
+          count: {
+            style: {
+              fontSize: 14,
+              fontWeight: 300,
+            }
+          }
+        },
         geometryOptions: [
           {
             geometry: 'column',
