@@ -6,6 +6,7 @@
     <link rel="stylesheet" type="text/css" href="{{pluResPath}}html/DAU/DAU.css" />
     <link rel="preload" href="{{_res_Path}}script/g2plot.min.js" as="script" />
     <link rel="preload" href="{{_res_Path}}font/tttgbnumber.ttf" as="font">
+    <link rel="preload" href="{{pluResPath}}font/ruizizhenyan.ttf" as="font">
     <link rel="preload" href="{{pluResPath}}html/DAU/img/bg.webp" as="image">
   </head>
 
@@ -33,11 +34,11 @@
           </div>
           <div class="primogems">
             <div class="icon-msg"></div>
-            <div class="text">上行消息量：{{totalDAU.msg_count}} 条</div>
+            <div class="text">上行消息量：{{totalDAU.msg_count}}</div>
           </div>
           <div class="primogems">
             <div class="icon-send"></div>
-            <div class="text">下行消息量：{{totalDAU.send_count}} 条</div>
+            <div class="text">下行消息量：{{totalDAU.send_count}}</div>
           </div>
         </div>
         <div class="today">
@@ -52,11 +53,11 @@
           </div>
           <div class="primogems">
             <div class="icon-msg"></div>
-            <div class="text">上行消息量：{{todayDAU.msg_count}} 条</div>
+            <div class="text">上行消息量：{{todayDAU.msg_count}}</div>
           </div>
           <div class="primogems">
             <div class="icon-send"></div>
-            <div class="text">下行消息量：{{todayDAU.send_count}} 条</div>
+            <div class="text">下行消息量：{{todayDAU.send_count}}</div>
           </div>
         </div>
       </div>
@@ -75,6 +76,11 @@
   <script>
     const { DualAxes } = G2Plot
     const daus = JSON.parse(`{{@ daus}}`)
+    const fontstyle = {
+      fontFamily: 'ruizizhenyan',
+      fontSize: 14,
+      fontWeight: 300,
+    }
     for (const month in daus) {
       const dualPlot = new DualAxes(`chartContainer${month}`, {
         animation: false,
@@ -91,22 +97,19 @@
           label: {
             style: {
               fill: 'black',
-              fontSize: 14,
-              fontWeight: 400,
+              ...fontstyle
             }
           }
         },
         yAxis: {
           linecount: {
-            style: {
-              fontSize: 14,
-              fontWeight: 300,
+            label: {
+              style: fontstyle
             }
           },
           count: {
-            style: {
-              fontSize: 14,
-              fontWeight: 300,
+            label: {
+              style: fontstyle
             }
           }
         },
@@ -116,20 +119,22 @@
             isGroup: true,
             seriesField: 'linename',
             columnWidthRatio: 0.5,
+            color: ['#877c74', '#92928b']
           }, {
             geometry: 'line',
             seriesField: 'name',
             label: {
               visible: true,
+              offsetY: -10,
               style: {
                 fontSize: 18,
-                fontWeight: 500,
+                fontWeight: 400,
                 fill: 'white',
                 stroke: '#626681',
-                lineWidth: 4
+                lineWidth: 4,
               }
             },
-            color: ['#F4664A', '#FE8A26'],
+            color: ['#D44000', '#FF7A00'],
             lineStyle: {
               lineWidth: 4
             }
@@ -139,12 +144,17 @@
           position: 'top',
           itemName: {
             style: {
-              fontSize: 16,
-              fontWeight: 400,
+              ...fontstyle,
+              fontSize: 16
             }
           },
           offsetY: -10,
           itemHeight: 30
+        },
+        theme: {
+          styleSheet: {
+            fontFamily: 'ruizizhenyan',
+          }
         }
       })
       dualPlot.render()
