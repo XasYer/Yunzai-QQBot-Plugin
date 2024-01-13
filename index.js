@@ -32,7 +32,7 @@ const toImg = await (async () => {
 })()
 
 const adapter = new class QQBotAdapter {
-  constructor () {
+  constructor() {
     this.id = 'QQBot'
     this.name = 'QQBot'
     this.path = 'data/QQBot/'
@@ -47,7 +47,7 @@ const adapter = new class QQBotAdapter {
     if (process.platform == 'win32') this.sep = config.sep || ''
   }
 
-  async makeSilk (file) {
+  async makeSilk(file) {
     const inputFile = path.join('temp', randomUUID())
     const pcmFile = path.join('temp', randomUUID())
 
@@ -65,11 +65,11 @@ const adapter = new class QQBotAdapter {
     return file
   }
 
-  async makeQRCode (data) {
+  async makeQRCode(data) {
     return (await QRCode.toDataURL(data)).replace('data:image/png;base64,', 'base64://')
   }
 
-  async makeRawMarkdownText (data, button) {
+  async makeRawMarkdownText(data, button) {
     const match = data.match(this.toQRCodeRegExp)
     if (match) for (const url of match) {
       button.push(...this.makeButtons(data, [[{ text: url, link: url }]]))
@@ -79,7 +79,7 @@ const adapter = new class QQBotAdapter {
     return data
   }
 
-  async makeImage (file) {
+  async makeImage(file) {
     const buffer = await Bot.Buffer(file)
     if (!Buffer.isBuffer(buffer)) return {}
 
@@ -94,7 +94,7 @@ const adapter = new class QQBotAdapter {
     return { dec: `图片 #${size.width}px #${size.height}px`, url }
   }
 
-  makeButton (data, button, style) {
+  makeButton(data, button, style) {
     const msg = {
       id: randomUUID(),
       render_data: {
@@ -145,7 +145,7 @@ const adapter = new class QQBotAdapter {
     return msg
   }
 
-  makeButtons (data, button_square) {
+  makeButtons(data, button_square) {
     const msgs = []
     const random = Math.floor(Math.random() * 2)
     for (const button_row of button_square) {
@@ -163,7 +163,7 @@ const adapter = new class QQBotAdapter {
   }
 
 
-  async makeRawMarkdownMsg (data, msg) {
+  async makeRawMarkdownMsg(data, msg) {
     if (!Array.isArray(msg))
       msg = [msg]
     const messages = []
@@ -237,7 +237,7 @@ const adapter = new class QQBotAdapter {
     return messages
   }
 
-  makeMarkdownTemplate (data, template) {
+  makeMarkdownTemplate(data, template) {
     const params = []
     for (const i of ['text_start', 'img_dec', 'img_url', 'text_end'])
       if (template[i]) params.push({ key: i, values: [template[i]] })
@@ -248,7 +248,7 @@ const adapter = new class QQBotAdapter {
     }
   }
 
-  async makeMarkdownMsg (data, msg) {
+  async makeMarkdownMsg(data, msg) {
     if (!Array.isArray(msg))
       msg = [msg]
     const messages = []
@@ -288,6 +288,17 @@ const adapter = new class QQBotAdapter {
           break
         case 'node':
           if (toImg) {
+            const buttons = i.data.flatMap(item => {
+              if (Array.isArray(item.message)) {
+                return item.message.filter(msg => msg.type === 'button')
+              } else if (typeof item.message === 'object' && item.message.type === 'button') {
+                return item.message
+              }
+              return []
+            })
+            for (const b of buttons) {
+              button.push(...this.makeButtons(data, b.data))
+            }
             const e = {
               reply: (msg) => {
                 i = msg
@@ -376,7 +387,7 @@ const adapter = new class QQBotAdapter {
     return messages
   }
 
-  async makeMsg (data, msg) {
+  async makeMsg(data, msg) {
     const sendType = ['audio', 'image', 'video', 'file']
     if (!Array.isArray(msg))
       msg = [msg]
@@ -477,7 +488,7 @@ const adapter = new class QQBotAdapter {
     return messages
   }
 
-  async sendMsg (data, send, msg) {
+  async sendMsg(data, send, msg) {
     const rets = { message_id: [], data: [] }
     let msgs
 
@@ -522,22 +533,22 @@ const adapter = new class QQBotAdapter {
     return rets
   }
 
-  sendReplyMsg (data, msg, event) {
+  sendReplyMsg(data, msg, event) {
     Bot.makeLog('info', `发送回复消息：[${data.group_id ? `${data.group_id}, ` : ''}${data.user_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendMsg(data, msg => event.reply(msg), msg)
   }
 
-  sendFriendMsg (data, msg, event) {
+  sendFriendMsg(data, msg, event) {
     Bot.makeLog('info', `发送好友消息：[${data.user_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendMsg(data, msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
   }
 
-  sendGroupMsg (data, msg, event) {
+  sendGroupMsg(data, msg, event) {
     Bot.makeLog('info', `发送群消息：[${data.group_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
   }
 
-  pickFriend (id, user_id) {
+  pickFriend(id, user_id) {
     if (config.toQQUin) {
       if (userIdCache[user_id]) {
         user_id = userIdCache[user_id]
@@ -556,7 +567,7 @@ const adapter = new class QQBotAdapter {
     }
   }
 
-  pickMember (id, group_id, user_id) {
+  pickMember(id, group_id, user_id) {
     if (config.toQQUin) {
       if (userIdCache[user_id]) {
         user_id = userIdCache[user_id]
@@ -575,7 +586,7 @@ const adapter = new class QQBotAdapter {
     }
   }
 
-  pickGroup (id, group_id) {
+  pickGroup(id, group_id) {
     const i = {
       ...Bot[id].gl.get(group_id),
       self_id: id,
@@ -590,14 +601,14 @@ const adapter = new class QQBotAdapter {
     }
   }
 
-  makeMessage (id, event) {
+  makeMessage(id, event) {
     const data = {
       raw: event,
       bot: Bot[id],
       self_id: id,
       post_type: event.post_type,
       message_id: event.message_id,
-      get user_id () { return this.sender.user_id },
+      get user_id() { return this.sender.user_id },
       group_id: `${id}${this.sep}${event.group_id}`,
       sender: {
         user_id: `${id}${this.sep}${event.sender.user_id}`,
@@ -629,7 +640,7 @@ const adapter = new class QQBotAdapter {
     return data
   }
 
-  makeFriendMessage (id, event) {
+  makeFriendMessage(id, event) {
     const data = this.makeMessage(id, event)
     data.message_type = 'private'
     delete data.group_id
@@ -638,7 +649,7 @@ const adapter = new class QQBotAdapter {
     Bot.em(`${data.post_type}.${data.message_type}`, data)
   }
 
-  async makeGroupMessage (id, event) {
+  async makeGroupMessage(id, event) {
     const data = this.makeMessage(id, event)
     data.message_type = 'group'
     data.bot.gl.set(data.group_id, {
@@ -667,19 +678,19 @@ const adapter = new class QQBotAdapter {
     Bot.em(`${data.post_type}.${data.message_type}`, data)
   }
 
-  getFriendMap (id) {
+  getFriendMap(id) {
     return Bot.getMap(`${this.path}${id}/Friend`)
   }
 
-  getGroupMap (id) {
+  getGroupMap(id) {
     return Bot.getMap(`${this.path}${id}/Group`)
   }
 
-  getMemberMap (id) {
+  getMemberMap(id) {
     return Bot.getMap(`${this.path}${id}/Member`)
   }
 
-  async connect (token) {
+  async connect(token) {
     token = token.split(':')
     const id = token[0]
     const opts = {
@@ -708,12 +719,12 @@ const adapter = new class QQBotAdapter {
     Bot[id] = {
       adapter: this,
       sdk: new QQBot(opts),
-      login () { return this.sdk.start() },
+      login() { return this.sdk.start() },
 
       uin: id,
       info: { id },
-      get nickname () { return this.sdk.nickname },
-      get avatar () { return `https://q1.qlogo.cn/g?b=qq&s=0&nk=${this.uin}` },
+      get nickname() { return this.sdk.nickname },
+      get avatar() { return `https://q1.qlogo.cn/g?b=qq&s=0&nk=${this.uin}` },
 
       version: {
         id: this.id,
@@ -726,13 +737,13 @@ const adapter = new class QQBotAdapter {
       },
 
       pickFriend: user_id => this.pickFriend(id, user_id),
-      get pickUser () { return this.pickFriend },
-      getFriendMap () { return this.fl },
+      get pickUser() { return this.pickFriend },
+      getFriendMap() { return this.fl },
       fl: this.getFriendMap(id),
 
       pickMember: (group_id, user_id) => this.pickMember(id, group_id, user_id),
       pickGroup: group_id => this.pickGroup(id, group_id),
-      getGroupMap () { return this.gl },
+      getGroupMap() { return this.gl },
       gl: this.getGroupMap(id),
       gml: this.getMemberMap(id)
     }
@@ -753,7 +764,7 @@ const adapter = new class QQBotAdapter {
     return true
   }
 
-  async load () {
+  async load() {
     for (const token of config.token)
       await new Promise(resolve => {
         adapter.connect(token).then(resolve)
@@ -765,7 +776,7 @@ const adapter = new class QQBotAdapter {
 Bot.adapter.push(adapter)
 
 export class QQBotAdapter extends plugin {
-  constructor () {
+  constructor() {
     super({
       name: 'QQBotAdapter',
       dsc: 'QQBot 适配器设置',
@@ -800,11 +811,11 @@ export class QQBotAdapter extends plugin {
     })
   }
 
-  List () {
+  List() {
     this.reply(`共${config.token.length}个账号：\n${config.token.join('\n')}`, true)
   }
 
-  async Token () {
+  async Token() {
     const token = this.e.msg.replace(/^#[Qq]+[Bb]ot设置/, '').trim()
     if (config.token.includes(token)) {
       config.token = config.token.filter(item => item != token)
@@ -821,7 +832,7 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  Markdown () {
+  Markdown() {
     let token = this.e.msg.replace(/^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?/, '').trim().split(':')
     const bot_id = token.shift()
     token = token.join(':')
@@ -830,14 +841,14 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  async Setting () {
+  async Setting() {
     const toQQUin = !!this.e.msg.includes('开启')
     config.toQQUin = toQQUin
     this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
     configSave(config)
   }
 
-  async DAUStat () {
+  async DAUStat() {
     const pro = !!/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/.exec(this.e.msg)[1]
     const uin = this.e.msg.replace(/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/, '') || this.e.self_id
     const dau = DAU[uin]
@@ -961,7 +972,7 @@ export class QQBotAdapter extends plugin {
 
 logger.info(logger.green('- QQBot 适配器插件 加载完成'))
 
-async function getDAU (uin) {
+async function getDAU(uin) {
   const time = getNowDate()
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
@@ -985,7 +996,7 @@ async function getDAU (uin) {
   }
 }
 
-function getNowDate () {
+function getNowDate() {
   const date = new Date()
   const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
   const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
