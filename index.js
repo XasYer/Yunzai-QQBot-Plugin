@@ -903,6 +903,7 @@ export class QQBotAdapter extends plugin {
     }
 
     if (pro) {
+      if (!fs.existsSync(path)) return false
       let daus = fs.readdirSync(path)
       if (_.isEmpty(daus)) return false
       daus = daus.map(v => JSON.parse(fs.readFileSync(`${path}/${v}`)))
