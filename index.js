@@ -100,7 +100,7 @@ const adapter = new class QQBotAdapter {
       render_data: {
         label: button.text,
         visited_label: button.clicked_text,
-        style: 1,
+        style: button.style || 1,
         ...button.QQBot?.render_data
       }
     }
