@@ -297,8 +297,10 @@ const adapter = new class QQBotAdapter {
                     if (msg.type === 'button') return msg
                     return []
                   })
-                } else if (typeof item.message === 'object' && item.message.type === 'button') {
-                  return item.message
+                }
+                if (typeof item.message === 'object') {
+                  if (item.message.type === 'button') return item.message
+                  if (item.message.type === 'node') return getButton(item.message.data)
                 }
                 return []
               })
