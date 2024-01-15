@@ -305,7 +305,16 @@ const adapter = new class QQBotAdapter {
                 return []
               })
             }
-            for (const b of getButton(i.data)) {
+            const btn = getButton(i.data)
+            const result = btn.reduce((acc, cur) => {
+              const duplicate = acc.find(obj => obj.text === cur.text && obj.callback === cur.callback && obj.input === cur.input && obj.link === cur.link)
+              if (!duplicate) {
+                return acc.concat([cur])
+              } else {
+                return acc
+              }
+            }, [])
+            for (const b of result) {
               button.push(...this.makeButtons(data, b.data))
             }
             const e = {
