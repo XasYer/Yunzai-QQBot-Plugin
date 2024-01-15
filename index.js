@@ -289,15 +289,21 @@ const adapter = new class QQBotAdapter {
           break
         case 'node':
           if (toImg) {
-            const buttons = i.data.flatMap(item => {
-              if (Array.isArray(item.message)) {
-                return item.message.filter(msg => msg.type === 'button')
-              } else if (typeof item.message === 'object' && item.message.type === 'button') {
-                return item.message
-              }
-              return []
-            })
-            for (const b of buttons) {
+            function getButton(data) {
+              return data.flatMap(item => {
+                if (Array.isArray(item.message)) {
+                  return item.message.flatMap(msg => {
+                    if (msg.type === 'node') return getButton(msg.data)
+                    if (msg.type === 'button') return msg
+                    return []
+                  })
+                } else if (typeof item.message === 'object' && item.message.type === 'button') {
+                  return item.message
+                }
+                return []
+              })
+            }
+            for (const b of getButton(i.data)) {
               button.push(...this.makeButtons(data, b.data))
             }
             const e = {
