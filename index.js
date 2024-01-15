@@ -543,13 +543,23 @@ const adapter = new class QQBotAdapter {
   }
 
   sendFriendMsg(data, msg, event) {
+    let log = '好友', callback = data.bot.sdk.sendPrivateMessage
+    if (['guild', 'direct'].includes(data.message_type)) {
+      log = '频道私聊'
+      callback = data.bot.sdk.sendDirectMessage
+    }
     Bot.makeLog('info', `发送好友消息：[${data.user_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendMsg(data, msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
   }
 
   sendGroupMsg(data, msg, event) {
-    Bot.makeLog('info', `发送群消息：[${data.group_id}] ${Bot.String(msg)}`, data.self_id)
-    return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
+    let log = '群', callback = data.bot.sdk.sendGroupMessage
+    if (data.message_type === 'guild') {
+      log = '频道'
+      callback = data.bot.sdk.sendGuildMessage
+    }
+    Bot.makeLog('info', `发送${log}消息：[${data.group_id}] ${Bot.String(msg)}`, data.self_id)
+    return this.sendMsg(data, msg => callback(data.group_id, msg, event), msg)
   }
 
   pickFriend(id, user_id) {
@@ -609,10 +619,10 @@ const adapter = new class QQBotAdapter {
       post_type: event.post_type,
       message_id: event.message_id,
       get user_id() { return this.sender.user_id },
-      group_id: `${id}${this.sep}${event.group_id}`,
+      group_id: `${id}${this.sep}${event.group_id || event.channel_id}`,
       sender: {
         user_id: `${id}${this.sep}${event.sender.user_id}`,
-        user_openid: `${id}${this.sep}${event.sender.user_openid}`
+        user_openid: `${id}${this.sep}${event.sender.user_openid || event.sender.user_id}`
       },
       message: event.message,
       raw_message: event.raw_message
@@ -635,7 +645,7 @@ const adapter = new class QQBotAdapter {
     )
     redis.set(`QQBotDAU:msg_count:${this.uin}`, DAU[this.uin].msg_count * 1, { EX })
     if (needSetRedis) redis.set(`QQBotDAU:${this.uin}`, JSON.stringify(DAU[this.uin]), { EX })
-    data.bot.fl.set(data.user_id, data.sender)
+    data.bot.fl.set(data.user_id, { ...data.sender, type: event.message_type })
     data.bot.stat.recv_msg_cnt++
     return data
   }
@@ -675,6 +685,54 @@ const adapter = new class QQBotAdapter {
       // }
     }
     Bot.makeLog('info', `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
+    Bot.em(`${data.post_type}.${data.message_type}`, data)
+  }
+
+  async makeDirectMessage(id, event) {
+    if (!config.guild) return
+    const data = this.makeMessage(id, event)
+    data.message_type = 'private'
+    delete data.group_id
+    data.reply = msg => this.sendReplyMsg(data, msg, event)
+    if (config.toQQUin && findUser_id) {
+      const user_id = await findUser_id({ user_id: data.user_id })
+      if (user_id?.custom) {
+        userIdCache[user_id.custom] = data.user_id
+        data.sender.user_id = user_id.custom
+      }
+    }
+    Bot.makeLog('info', `频道私聊消息：[${data.user_id}] ${data.raw_message}`, data.self_id)
+    Bot.em(`${data.post_type}.${data.message_type}`, data)
+  }
+
+  async makeGuildMessage(id, event) {
+    if (!config.guild) return
+    const data = this.makeMessage(id, event)
+    data.message_type = 'group'
+    if (data.message.length === 0) {
+      // tx.sb 群有一个空格频道没有
+      data.message.push({ type: 'text', text: '' })
+    }
+    data.bot.gl.set(data.group_id, {
+      group_id: data.group_id,
+      group_openid: event.group_openid,
+      message_type: event.message_type
+    })
+    let gml = data.bot.gml.get(data.group_id)
+    if (!gml) {
+      gml = new Map
+      data.bot.gml.set(data.group_id, gml)
+    }
+    gml.set(data.user_id, data.sender)
+    if (config.toQQUin && findUser_id) {
+      const user_id = await findUser_id({ user_id: data.user_id })
+      if (user_id?.custom) {
+        userIdCache[user_id.custom] = data.user_id
+        data.sender.user_id = user_id.custom
+      }
+    }
+    data.reply = msg => this.sendReplyMsg(data, msg, event)
+    Bot.makeLog('info', `频道消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
     Bot.em(`${data.post_type}.${data.message_type}`, data)
   }
 
@@ -756,6 +814,8 @@ const adapter = new class QQBotAdapter {
 
     Bot[id].sdk.on('message.private', event => this.makeFriendMessage(id, event))
     Bot[id].sdk.on('message.group', event => this.makeGroupMessage(id, event))
+    Bot[id].sdk.on('message.guild', event => this.makeGuildMessage(id, event))
+    Bot[id].sdk.on('message.direct', event => this.makeDirectMessage(id, event))
 
     logger.mark(`${logger.blue(`[${id}]`)} ${this.name}(${this.id}) ${this.version} 已连接`)
     Bot.em(`connect.${id}`, { self_id: id })
@@ -803,6 +863,11 @@ export class QQBotAdapter extends plugin {
           permission: config.permission
         },
         {
+          reg: '^#[Qq]+[Bb]ot设置频道\\s*(开启|关闭)$',
+          fnc: 'Guild',
+          permission: config.permission
+        },
+        {
           reg: '^#[Qq]+[Bb]ot[Dd][Aa][Uu]',
           fnc: 'DAUStat',
           permission: config.permission
@@ -844,6 +909,13 @@ export class QQBotAdapter extends plugin {
   async Setting() {
     const toQQUin = !!this.e.msg.includes('开启')
     config.toQQUin = toQQUin
+    this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
+    configSave(config)
+  }
+
+  async Guild() {
+    const guild = !!this.e.msg.includes('开启')
+    config.guild = guild
     this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
     configSave(config)
   }
