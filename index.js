@@ -538,7 +538,7 @@ const adapter = new class QQBotAdapter {
       }
     }
 
-    if (config.markdown[data.self_id]) {
+    if (config.markdown[data.self_id] && !['guild', 'direct'].indexOf(data.raw.message_type)) {
       if (config.markdown[data.self_id] == 'raw')
         msgs = await this.makeRawMarkdownMsg(data, msg)
       else
@@ -565,8 +565,8 @@ const adapter = new class QQBotAdapter {
       log = '频道私聊'
       callback = data.bot.sdk.sendDirectMessage
     }
-    Bot.makeLog('info', `发送好友消息：[${data.user_id}] ${Bot.String(msg)}`, data.self_id)
-    return this.sendMsg(data, msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
+    Bot.makeLog('info', `发送${log}消息：[${data.user_id}] ${Bot.String(msg)}`, data.self_id)
+    return this.sendMsg(data, msg => callback(data.user_id, msg, event), msg)
   }
 
   sendGroupMsg(data, msg, event) {
