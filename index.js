@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto'
 import { encode as encodeSilk } from 'silk-wasm'
 import { Bot as QQBot } from 'qq-group-bot'
 import Runtime from '../../lib/plugins/runtime.js'
+import Handler from '../../lib/plugins/handler.js'
 import puppeteer from '../../lib/puppeteer/puppeteer.js'
 import _ from 'lodash'
 
@@ -19,13 +20,6 @@ const DAU = {}
 const findUser_id = await (async () => {
   try {
     return (await import('../ws-plugin/model/db/index.js')).findUser_id
-  } catch (error) {
-    return false
-  }
-})()
-const toImg = await (async () => {
-  try {
-    return (await import('../ws-plugin/model/index.js')).toImg
   } catch (error) {
     return false
   }
@@ -288,7 +282,7 @@ const adapter = new class QQBotAdapter {
           content += i.text
           break
         case 'node':
-          if (toImg) {
+          if (Handler.has('ws.tool.toImg')) {
             function getButton(data) {
               return data.flatMap(item => {
                 if (Array.isArray(item.message)) {
@@ -321,13 +315,13 @@ const adapter = new class QQBotAdapter {
               reply: (msg) => {
                 i = msg
               },
-              bot: {
-                uin: this.uin,
-                nickname: Bot[this.uin].sdk.nickname
-              }
+              // 兼容一下
+              bot: {},
+              user_id: data.bot.uin,
+              nickname: data.bot.nickname
             }
             e.runtime = new Runtime(e)
-            await toImg(i.data, e)
+            await Handler.call('ws.tool.toImg', e, i.data)
           } else {
             for (const { message } of i.data)
               messages.push(...(await this.makeMarkdownMsg(data, message)))
@@ -458,18 +452,18 @@ const adapter = new class QQBotAdapter {
           message.push(...this.makeButtons(data, i.data))
           continue
         case 'node':
-          if (toImg) {
+          if (Handler.has('ws.tool.toImg')) {
             const e = {
               reply: (msg) => {
                 i = msg
               },
-              bot: {
-                uin: this.uin,
-                nickname: Bot[this.uin].sdk.nickname
-              }
+              // 兼容一下
+              bot: {},
+              user_id: data.bot.uin,
+              nickname: data.bot.nickname
             }
             e.runtime = new Runtime(e)
-            await toImg(i.data, e)
+            await Handler.call('ws.tool.toImg', e, i.data)
             i.file = await Bot.fileToUrl(i.file)
             if (message.some(s => sendType.includes(s.type))) {
               messages.push(message)
