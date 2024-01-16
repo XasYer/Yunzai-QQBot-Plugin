@@ -687,7 +687,7 @@ const adapter = new class QQBotAdapter {
     }
     gml.set(data.user_id, data.sender)
     data.reply = msg => this.sendReplyMsg(data, msg, event)
-    if (config.toQQUin && findUser_id) {
+    if (config.toQQUin && typeof findUser_id === 'function') {
       const user_id = await findUser_id({ user_id: data.user_id })
       if (user_id?.custom) {
         userIdCache[user_id.custom] = data.user_id
@@ -708,7 +708,7 @@ const adapter = new class QQBotAdapter {
     data.message_type = 'private'
     delete data.group_id
     data.reply = msg => this.sendReplyMsg(data, msg, event)
-    if (config.toQQUin && findUser_id) {
+    if (config.toQQUin && typeof findUser_id === 'function') {
       const user_id = await findUser_id({ user_id: data.user_id })
       if (user_id?.custom) {
         userIdCache[user_id.custom] = data.user_id
@@ -738,7 +738,7 @@ const adapter = new class QQBotAdapter {
       data.bot.gml.set(data.group_id, gml)
     }
     gml.set(data.user_id, data.sender)
-    if (config.toQQUin && findUser_id) {
+    if (config.toQQUin && typeof findUser_id === 'function') {
       const user_id = await findUser_id({ user_id: data.user_id })
       if (user_id?.custom) {
         userIdCache[user_id.custom] = data.user_id
