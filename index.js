@@ -933,7 +933,7 @@ export class QQBotAdapter extends plugin {
   async Guild() {
     const guild = !!this.e.msg.includes('开启')
     config.guild = guild
-    this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
+    this.reply('设置成功,已' + (guild ? '开启' : '关闭'), true)
     configSave(config)
   }
 
