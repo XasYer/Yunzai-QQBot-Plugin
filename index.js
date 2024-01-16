@@ -17,13 +17,16 @@ import _ from 'lodash'
 
 const userIdCache = {}
 const DAU = {}
-const findUser_id = await (async () => {
-  try {
-    return (await import('../ws-plugin/model/db/index.js')).findUser_id
-  } catch (error) {
-    return false
-  }
-})()
+let findUser_id
+setTimeout(async () => {
+  findUser_id = await (async () => {
+    try {
+      return (await import('../ws-plugin/model/db/index.js')).findUser_id
+    } catch (error) {
+      return false
+    }
+  })()
+}, 5000)
 
 const adapter = new class QQBotAdapter {
   constructor() {
