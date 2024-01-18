@@ -111,23 +111,23 @@ const adapter = new class QQBotAdapter {
         ...button.QQBot?.action
       }
     else if (button.callback) {
-      if (config.toCallback) {
-        msg.action = {
-          type: 1,
-          permission: { type: 2 },
-          ...button.QQBot?.action,
-        }
-        if (!Array.isArray(data._ret_id))
-          data._ret_id = []
-        data.bot.callback[msg.id] = {
-          id: data.message_id,
-          user_id: data.user_id,
-          group_id: data.group_id,
-          message: button.callback,
-          message_id: data._ret_id,
-        }
-        setTimeout(() => delete data.bot.callback[msg.id], 300000)
-      } else {
+      // if (config.toCallback) {
+      //   msg.action = {
+      //     type: 1,
+      //     permission: { type: 2 },
+      //     ...button.QQBot?.action,
+      //   }
+      //   if (!Array.isArray(data._ret_id))
+      //     data._ret_id = []
+      //   data.bot.callback[msg.id] = {
+      //     id: data.message_id,
+      //     user_id: data.user_id,
+      //     group_id: data.group_id,
+      //     message: button.callback,
+      //     message_id: data._ret_id,
+      //   }
+      //   setTimeout(() => delete data.bot.callback[msg.id], 300000)
+      // } else {
         msg.action = {
           type: 2,
           permission: { type: 2 },
@@ -135,7 +135,7 @@ const adapter = new class QQBotAdapter {
           enter: true,
           ...button.QQBot?.action,
         }
-      }
+      // }
     } else if (button.link)
       msg.action = {
         type: 0,
