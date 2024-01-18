@@ -675,11 +675,13 @@ const adapter = new class QQBotAdapter {
     switch (data.message_type) {
       case "private":
         data.sender.user_id = `${id}${this.sep}${event.user_id}`
+        data.sender.user_openid = data.sender.user_id
         Bot.makeLog("info", `好友消息：[${data.user_id}] ${data.raw_message}`, data.self_id)
         data.reply = msg => this.sendFriendMsg({ ...data, user_id: event.user_id }, msg, { id: data.message_id })
         break
       case "group":
         data.sender.user_id = `${id}${this.sep}${event.user_id}`
+        data.sender.user_openid = data.sender.user_id
         data.group_id = `${id}${this.sep}${event.group_id}`
         if (config.toQQUin && typeof findUser_id === 'function') {
           const user_id = await findUser_id({ user_id: data.user_id })
