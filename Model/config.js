@@ -9,6 +9,7 @@ const config = {
   tips: "",
   permission: "master",
   toQRCode: true,
+  toCallback: true,
   toQQUin: false,
   guild: false,
   markdown: {},
