@@ -535,7 +535,7 @@ const adapter = new class QQBotAdapter {
       }
     }
 
-    if (config.markdown[data.self_id] && !['guild', 'direct'].includes(data.raw.message_type)) {
+    if (config.markdown[data.self_id] && !['guild', 'direct'].includes(data?.raw?.message_type)) {
       if (config.markdown[data.self_id] == 'raw')
         msgs = await this.makeRawMarkdownMsg(data, msg)
       else
