@@ -844,6 +844,17 @@ const adapter = new class QQBotAdapter {
       case "action":
         return this.makeCallback(id, event)
       case "increase":
+        if (event.notice_type === 'group') {
+          const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'groupIncreaseMsg.js')
+          if (fs.existsSync(path)) {
+            import(`file://${path}`).then(msg => msg.default).then(msg => {
+              if (msg.length > 0) {
+                this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(event.group_id, msg), msg)
+              }
+            })
+          }
+        }
+        return
       case "decrease":
       case "update":
       case "member.increase":

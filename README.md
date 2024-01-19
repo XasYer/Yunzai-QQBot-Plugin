@@ -22,6 +22,26 @@ TRSS-Yunzai QQBot 适配器 插件
 1. 转发消息改为渲染成图片,需要安装`ws-plugin`
 2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
 3. `#QQBotDAU` and `#QQBotDAUpro`
+4. `#QQBot设置频道开启`没啥用的功能
+5. `QQBot-Plugin/Model`中`自定义入群发送主动消息`
+
+## 安装教程
+
+1. 准备：[TRSS-Yunzai](../../../Yunzai)
+2. 输入：`#安装QQBot-Plugin`
+3. 打开：[QQ 开放平台](https://q.qq.com) 创建 Bot：  
+① 创建机器人  
+② 开发设置 → 得到 `机器人QQ号:AppID:Token:AppSecret`  
+4. 输入：`#QQBot设置机器人QQ号:AppID:Token:AppSecret:[01]:[01]`
+5. 公网地址填入 `config/config/bot.yaml:url`
+
+## 格式示例
+
+- 机器人QQ号 `114` AppID `514` Token `1919` AppSecret `810` 群Bot 频道私域
+
+```
+#QQBot设置114:514:1919:810:1:1
+```
 
 ## 高阶能力
 
@@ -42,24 +62,6 @@ Markdown 源码：`{{.a}}{{.b}}`
 保存 → 提交审核 → 审核完成后，输入 `#QQBotMD机器人QQ号:模板ID`
 
 </details>
-
-## 安装教程
-
-1. 准备：[TRSS-Yunzai](../../../Yunzai)
-2. 输入：`#安装QQBot-Plugin`
-3. 打开：[QQ 开放平台](https://q.qq.com) 创建 Bot：  
-① 创建机器人  
-② 开发设置 → 得到 `机器人QQ号:AppID:Token:AppSecret`  
-4. 输入：`#QQBot设置机器人QQ号:AppID:Token:AppSecret:[01]:[01]`
-5. 公网地址填入 `config/config/bot.yaml:url`
-
-## 格式示例
-
-- 机器人QQ号 `114` AppID `514` Token `1919` AppSecret `810` 群Bot 频道私域
-
-```
-#QQBot设置114:514:1919:810:1:1
-```
 
 ## 使用教程
 
