@@ -11,7 +11,6 @@ const config = {
   toQRCode: true,
   toCallback: true,
   toQQUin: false,
-  guild: false,
   markdown: {},
   bot: {
     sandbox: false,

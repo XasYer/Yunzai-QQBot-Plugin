@@ -22,7 +22,6 @@ TRSS-Yunzai QQBot 适配器 插件
 1. 转发消息改为渲染成图片,需要安装`ws-plugin`
 2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
 3. `#QQBotDAU` and `#QQBotDAUpro`
-4. `#QQBot设置频道开启`没啥用的功能
 5. `QQBot-Plugin/Model`中`自定义入群发送主动消息`
 
 ## 安装教程
