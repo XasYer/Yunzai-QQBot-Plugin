@@ -320,7 +320,7 @@ const adapter = new class QQBotAdapter {
           content += i.text
           break
         case 'node':
-          if (Handler.has('ws.tool.toImg')) {
+          if (Handler.has('ws.tool.toImg') && config.toImg) {
             function getButton(data) {
               return data.flatMap(item => {
                 if (Array.isArray(item.message)) {
@@ -498,7 +498,7 @@ const adapter = new class QQBotAdapter {
           message.push(...this.makeButtons(data, i.data))
           continue
         case 'node':
-          if (Handler.has('ws.tool.toImg')) {
+          if (Handler.has('ws.tool.toImg') && config.toImg) {
             const e = {
               reply: (msg) => {
                 i = msg

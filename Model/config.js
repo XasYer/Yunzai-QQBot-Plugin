@@ -11,6 +11,7 @@ const config = {
   toQRCode: true,
   toCallback: true,
   toQQUin: false,
+  toImg: true,
   markdown: {},
   bot: {
     sandbox: false,
