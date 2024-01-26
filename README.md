@@ -23,7 +23,15 @@ TRSS-Yunzai QQBot 适配器 插件
 2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
 3. `#QQBotDAU` and `#QQBotDAUpro`
 5. `QQBot-Plugin/Model`中`自定义入群发送主动消息`
-
+6. `config/QQBot.yaml`中使用以下自定义模版,配合`e.toQQBotMD = true`将特定消息转换成md
+```
+customMD:
+  BotQQ:
+    custom_template_id: 模版id
+    keys: 
+      - key1 #对应的模版key名字
+      - key2
+```
 ## 安装教程
 
 1. 准备：[TRSS-Yunzai](../../../Yunzai)

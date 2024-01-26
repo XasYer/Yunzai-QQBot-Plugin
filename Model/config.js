@@ -13,6 +13,7 @@ const config = {
   toQQUin: false,
   toImg: true,
   markdown: {},
+  customMD: {},
   bot: {
     sandbox: false,
     maxRetry: Infinity,
