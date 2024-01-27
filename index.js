@@ -1195,7 +1195,7 @@ const adapter = new class QQBotAdapter {
 Bot.adapter.push(adapter)
 
 export class QQBotAdapter extends plugin {
-  constructor() {
+  constructor () {
     super({
       name: 'QQBotAdapter',
       dsc: 'QQBot 适配器设置',
@@ -1235,11 +1235,19 @@ export class QQBotAdapter extends plugin {
     })
   }
 
-  List() {
+  async init () {
+    // dau数据合并
+    let dauPath = './data/QQBotDAU'
+    if (fs.existsSync(dauPath)) {
+      this.mergeDAU(dauPath)
+    }
+  }
+
+  List () {
     this.reply(`共${config.token.length}个账号：\n${config.token.join('\n')}`, true)
   }
 
-  async Token() {
+  async Token () {
     const token = this.e.msg.replace(/^#[Qq]+[Bb]ot设置/, '').trim()
     if (config.token.includes(token)) {
       config.token = config.token.filter(item => item != token)
@@ -1256,7 +1264,7 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  Markdown() {
+  Markdown () {
     let token = this.e.msg.replace(/^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?/, '').trim().split(':')
     const bot_id = token.shift()
     token = token.join(':')
@@ -1265,21 +1273,21 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  async Setting() {
+  async Setting () {
     const toQQUin = !!this.e.msg.includes('开启')
     config.toQQUin = toQQUin
     this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
     configSave(config)
   }
 
-  async Guild() {
+  async Guild () {
     const guild = !!this.e.msg.includes('开启')
     config.guild = guild
     this.reply('设置成功,已' + (guild ? '开启' : '关闭'), true)
     configSave(config)
   }
 
-  async DAUStat() {
+  async DAUStat () {
     const pro = !!/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/.exec(this.e.msg)[1]
     const uin = this.e.msg.replace(/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/, '') || this.e.self_id
     const dau = DAU[uin]
@@ -1293,13 +1301,12 @@ export class QQBotAdapter extends plugin {
       ''
     ]
     const path = join(process.cwd(), 'data', 'QQBotDAU', uin)
+    const today = moment().format('YYYY-MM-DD')
+    const yearMonth = moment(today).format('YYYY-MM')
     // 昨日DAU
     try {
-      let date = new Date(dau.time)
-      date.setDate(date.getDate() - 1)
-      let yesterday = date.toISOString().slice(0, 10)
-      let yesterdayDau = fs.readFileSync(join(path, `${yesterday}.json`), 'utf-8')
-      yesterdayDau = JSON.parse(yesterdayDau)
+      let yesterdayDau = JSON.parse(fs.readFileSync(join(path, `${yearMonth}.json`), 'utf8'))
+      yesterdayDau = yesterdayDau.filter(v => moment(v.time).isSame(moment(today).subtract(1, 'days')))[0]
       msg.push(...[
         yesterdayDau.time,
         `上行消息量: ${yesterdayDau.msg_count}`,
@@ -1309,47 +1316,36 @@ export class QQBotAdapter extends plugin {
         ''
       ])
     } catch (error) { }
-    const totalDAU = {
+
+    let totalDAU = {
       user_count: 0,
       group_count: 0,
       msg_count: 0,
       send_count: 0
     }
     let day_count = 0
-    const date = new Date(dau.time)
-    for (let i = 1; i <= 30; i++) {
-      date.setDate(date.getDate() - 1)
-      const time = date.toISOString().slice(0, 10)
-      try {
-        let dayDau = fs.readFileSync(join(path, `${time}.json`), 'utf-8')
-        dayDau = JSON.parse(dayDau)
-        for (const i in totalDAU) {
-          if (dayDau[i]) {
-            totalDAU[i] += Number(dayDau[i]) || String(dayDau[i])
-          }
-        }
-        day_count++
-      } catch (error) { }
-    }
-    if (day_count > 1) {
-      for (const i in totalDAU) {
-        totalDAU[i] = Math.floor(totalDAU[i] / day_count)
-      }
-      msg.push(...[
-        `最近${numToChinese[day_count] || day_count}天平均DAU`,
-        `上行消息量: ${totalDAU.msg_count}`,
-        `下行消息量: ${totalDAU.send_count}`,
-        `上行消息人数: ${totalDAU.user_count}`,
-        `上行消息群数: ${totalDAU.group_count}`
-      ])
-    }
+    try {
+      let days30 = [yearMonth, moment(yearMonth).subtract(1, 'months').format('YYYY-MM')]
+      let dayDau = _.map(days30, v => JSON.parse(fs.readFileSync(join(path, `${v}.json`), 'utf-8')).reverse())
+      dayDau = _.take(_.flatten(dayDau), 30)
+      day_count = dayDau.length
+      _.each(totalDAU, (v, k) => {
+        totalDAU[k] = _.floor(_.meanBy(dayDau, k))
+      })
+    } catch (error) { }
+    msg.push(...[
+      `最近${numToChinese[day_count] || day_count}天平均DAU`,
+      `上行消息量: ${totalDAU.msg_count}`,
+      `下行消息量: ${totalDAU.send_count}`,
+      `上行消息人数: ${totalDAU.user_count}`,
+      `上行消息群数: ${totalDAU.group_count}`
+    ])
 
     if (pro) {
       if (!fs.existsSync(path)) return false
       let daus = fs.readdirSync(path)
       if (_.isEmpty(daus)) return false
-      daus = daus.map(v => JSON.parse(fs.readFileSync(`${path}/${v}`)))
-      let data = _.groupBy(daus, v => moment(v.time).format('yyyy-MM'))
+      let data = _.fromPairs(daus.map(v => [v.replace('.json', ''), JSON.parse(fs.readFileSync(`${path}/${v}`))]))
       // 月度统计
       _.each(data, (v, k) => {
         let coldata = []
@@ -1399,11 +1395,62 @@ export class QQBotAdapter extends plugin {
     }
     this.reply(msg.join('\n'), true)
   }
+
+  mergeDAU (dauPath) {
+    let daus = this.getAllDAU(dauPath)
+    if (!daus.length) return false
+
+    daus = _.filter(daus, v => v.endsWith('.json'))
+    if (_.some(daus, v => v.split('-').length === 2)) return false
+
+    daus = _.groupBy(daus, v => v.slice(0, v.lastIndexOf('/')))
+    logger.info('[QQBOT]正在合并DAU数据中，请稍等...')
+
+    try {
+      _.each(daus, (v, k) => {
+        let datas = _.map(v, f => JSON.parse(fs.readFileSync(f, 'utf8')))
+        datas = _.groupBy(datas, d => moment(d.time).format('yyyy-MM'))
+        _.each(datas, (data, month) => {
+          fs.writeFileSync(`${k}/${month}.json`, JSON.stringify(data, '', '\t'), 'utf8')
+        })
+
+        if (!fs.existsSync('./temp/QQBotDAU')) fs.mkdirSync('./temp/QQBotDAU')
+        let tempfolder = k.replace('./data', './temp')
+        if (!fs.existsSync(tempfolder)) fs.mkdirSync(tempfolder)
+
+        _.each(v, temp => {
+          let tempfile = temp.replace('./data', './temp')
+          fs.copyFileSync(temp, tempfile)
+          fs.unlinkSync(temp)
+        })
+      })
+      logger.info('[QQBOT]DAU数据合并成功！旧数据已迁移至temp/QQBotDAU目录')
+    } catch (err) {
+      logger.error('[QQBOT]DAU数据合并失败！')
+      logger.error('[QQBOT]请自行删除data/QQBotDAU目录下文件名格式为20xx-xx-xx.json的文件，不要删错了哦~')
+      return false
+    }
+  }
+
+  getAllDAU (dauPath) {
+    let dirs = fs.readdirSync(dauPath, { withFileTypes: true })
+    if (_.isEmpty(dirs)) return dirs
+
+    let daus = []
+    _.each(dirs, v => {
+      let currentPath = `${dauPath}/${v.name}`
+      if (v.isDirectory()) {
+        daus = daus.concat(this.getAllDAU(currentPath))
+      } else daus.push(currentPath)
+    })
+
+    return daus
+  }
 }
 
 logger.info(logger.green('- QQBot 适配器插件 加载完成'))
 
-async function getDAU(uin) {
+async function getDAU (uin) {
   const time = getNowDate()
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
@@ -1427,7 +1474,7 @@ async function getDAU(uin) {
   }
 }
 
-function getNowDate() {
+function getNowDate () {
   const date = new Date()
   const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
   const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
@@ -1436,6 +1483,7 @@ function getNowDate() {
 
 // 每天零点清除DAU统计并保存到文件
 schedule.scheduleJob('0 0 0 * * ?', () => {
+  const yearMonth = moment().format('YYYY-MM')
   const time = getNowDate()
   const path = join(process.cwd(), 'data', 'QQBotDAU')
   if (!fs.existsSync(path)) fs.mkdirSync(path)
@@ -1454,7 +1502,10 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
         time
       }
       if (!fs.existsSync(join(path, key))) fs.mkdirSync(join(path, key))
-      fs.writeFile(join(path, key, `${data.time}.json`), JSON.stringify(data), 'utf-8', () => { })
+      let filePath = join(path, key, `${yearMonth}.json`)
+      let file = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : []
+      file.push(data)
+      fs.writeFile(filePath, JSON.stringify(file, '', '\t'), 'utf-8', () => { })
     } catch (error) {
       logger.error('清除DAU数据出错,key: ' + key, error)
     }
