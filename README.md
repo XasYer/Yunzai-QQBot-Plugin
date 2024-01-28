@@ -32,6 +32,7 @@ customMD:
       - key1 #对应的模版key名字
       - key2
 ```
+7. `config/QQBot.yaml`中`saveDBFile: false`是否使用基于文件的数据库
 ## 安装教程
 
 1. 准备：[TRSS-Yunzai](../../../Yunzai)

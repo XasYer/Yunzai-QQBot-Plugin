@@ -12,6 +12,7 @@ const config = {
   toCallback: true,
   toQQUin: false,
   toImg: true,
+  saveDBFile: false,
   markdown: {},
   customMD: {},
   bot: {

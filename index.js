@@ -1096,15 +1096,24 @@ const adapter = new class QQBotAdapter {
   }
 
   getFriendMap(id) {
-    return Bot.getMap(`${this.path}${id}/Friend`)
+    if (config.saveDBFile) {
+      return Bot.getMap(`${this.path}${id}/Friend`)
+    }
+    return new Map
   }
 
   getGroupMap(id) {
-    return Bot.getMap(`${this.path}${id}/Group`)
+    if (config.saveDBFile) {
+      return Bot.getMap(`${this.path}${id}/Group`)
+    }
+    return new Map
   }
 
   getMemberMap(id) {
-    return Bot.getMap(`${this.path}${id}/Member`)
+    if (config.saveDBFile) {
+      return Bot.getMap(`${this.path}${id}/Member`)
+    }
+    return new Map
   }
 
   async connect(token) {
@@ -1195,7 +1204,7 @@ const adapter = new class QQBotAdapter {
 Bot.adapter.push(adapter)
 
 export class QQBotAdapter extends plugin {
-  constructor () {
+  constructor() {
     super({
       name: 'QQBotAdapter',
       dsc: 'QQBot 适配器设置',
@@ -1235,7 +1244,7 @@ export class QQBotAdapter extends plugin {
     })
   }
 
-  async init () {
+  async init() {
     // dau数据合并
     let dauPath = './data/QQBotDAU'
     if (fs.existsSync(dauPath)) {
@@ -1243,11 +1252,11 @@ export class QQBotAdapter extends plugin {
     }
   }
 
-  List () {
+  List() {
     this.reply(`共${config.token.length}个账号：\n${config.token.join('\n')}`, true)
   }
 
-  async Token () {
+  async Token() {
     const token = this.e.msg.replace(/^#[Qq]+[Bb]ot设置/, '').trim()
     if (config.token.includes(token)) {
       config.token = config.token.filter(item => item != token)
@@ -1264,7 +1273,7 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  Markdown () {
+  Markdown() {
     let token = this.e.msg.replace(/^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?/, '').trim().split(':')
     const bot_id = token.shift()
     token = token.join(':')
@@ -1273,21 +1282,21 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  async Setting () {
+  async Setting() {
     const toQQUin = !!this.e.msg.includes('开启')
     config.toQQUin = toQQUin
     this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
     configSave(config)
   }
 
-  async Guild () {
+  async Guild() {
     const guild = !!this.e.msg.includes('开启')
     config.guild = guild
     this.reply('设置成功,已' + (guild ? '开启' : '关闭'), true)
     configSave(config)
   }
 
-  async DAUStat () {
+  async DAUStat() {
     const pro = !!/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/.exec(this.e.msg)[1]
     const uin = this.e.msg.replace(/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/, '') || this.e.self_id
     const dau = DAU[uin]
@@ -1399,7 +1408,7 @@ export class QQBotAdapter extends plugin {
     this.reply(msg.join('\n'), true)
   }
 
-  mergeDAU (dauPath) {
+  mergeDAU(dauPath) {
     let daus = this.getAllDAU(dauPath)
     if (!daus.length) return false
 
@@ -1435,7 +1444,7 @@ export class QQBotAdapter extends plugin {
     }
   }
 
-  getAllDAU (dauPath) {
+  getAllDAU(dauPath) {
     let dirs = fs.readdirSync(dauPath, { withFileTypes: true })
     if (_.isEmpty(dirs)) return dirs
 
@@ -1453,7 +1462,7 @@ export class QQBotAdapter extends plugin {
 
 logger.info(logger.green('- QQBot 适配器插件 加载完成'))
 
-async function getDAU (uin) {
+async function getDAU(uin) {
   const time = getNowDate()
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
@@ -1477,7 +1486,7 @@ async function getDAU (uin) {
   }
 }
 
-function getNowDate () {
+function getNowDate() {
   const date = new Date()
   const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
   const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
