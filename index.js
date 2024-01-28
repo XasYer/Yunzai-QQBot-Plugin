@@ -1326,7 +1326,10 @@ export class QQBotAdapter extends plugin {
     let day_count = 0
     try {
       let days30 = [yearMonth, moment(yearMonth).subtract(1, 'months').format('YYYY-MM')]
-      let dayDau = _.map(days30, v => JSON.parse(fs.readFileSync(join(path, `${v}.json`), 'utf-8')).reverse())
+      let dayDau = _.map(days30, v => {
+        let file = join(path, `${v}.json`)
+        return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf-8')).reverse() : []
+      })
       dayDau = _.take(_.flatten(dayDau), 30)
       day_count = dayDau.length
       _.each(totalDAU, (v, k) => {
