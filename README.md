@@ -4,13 +4,6 @@
 
 TRSS-Yunzai QQBot 适配器 插件
 
-[![访问量](https://visitor-badge.glitch.me/badge?page_id=TimeRainStarSky.Yunzai-QQBot-Plugin&right_color=red&left_text=访%20问%20量)](https://github.com/TimeRainStarSky/Yunzai-QQBot-Plugin)
-[![Stars](https://img.shields.io/github/stars/TimeRainStarSky/Yunzai-QQBot-Plugin?color=yellow&label=收藏)](../../stargazers)
-[![Downloads](https://img.shields.io/github/downloads/TimeRainStarSky/Yunzai-QQBot-Plugin/total?color=blue&label=下载)](../../archive/main.tar.gz)
-[![Releases](https://img.shields.io/github/v/release/TimeRainStarSky/Yunzai-QQBot-Plugin?color=green&label=发行版)](../../releases/latest)
-
-[![访问量](https://profile-counter.glitch.me/TimeRainStarSky-Yunzai-QQBot-Plugin/count.svg)](https://github.com/TimeRainStarSky/Yunzai-QQBot-Plugin)
-
 </div>
 
 # Tip
@@ -24,14 +17,14 @@ TRSS-Yunzai QQBot 适配器 插件
 3. `#QQBotDAU` and `#QQBotDAUpro`
 5. `QQBot-Plugin/Model`中`自定义入群发送主动消息`
 6. `config/QQBot.yaml`中使用以下自定义模版,配合`e.toQQBotMD = true`将特定消息转换成md
-```
-customMD:
-  BotQQ:
-    custom_template_id: 模版id
-    keys: 
-      - key1 #对应的模版key名字
-      - key2
-```
+    ```
+    customMD:
+      BotQQ:
+        custom_template_id: 模版id
+        keys: 
+          - key1 #对应的模版key名字
+          - key2
+    ```
 7. `config/QQBot.yaml`中`saveDBFile: false`是否使用基于文件的数据库
 ## 安装教程
 
