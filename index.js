@@ -1231,8 +1231,8 @@ export class QQBotAdapter extends plugin {
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot设置频道\\s*(开启|关闭)$',
-          fnc: 'Guild',
+          reg: '^#[Qq]+[Bb]ot设置按钮回调\\s*(开启|关闭)$',
+          fnc: 'btnCallback',
           permission: config.permission
         },
         {
@@ -1289,10 +1289,10 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  async Guild() {
-    const guild = !!this.e.msg.includes('开启')
-    config.guild = guild
-    this.reply('设置成功,已' + (guild ? '开启' : '关闭'), true)
+  async btnCallback() {
+    const callback = !!this.e.msg.includes('开启')
+    config.toCallback = callback
+    this.reply('设置成功,已' + (callback ? '开启' : '关闭'), true)
     configSave(config)
   }
 
