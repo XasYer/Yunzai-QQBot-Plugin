@@ -70,27 +70,48 @@ const adapter = new class QQBotAdapter {
     const match = text.match(this.toQRCodeRegExp)
     if (match) for (const url of match) {
       button.push(...this.makeButtons(data, [[{ text: url, link: url }]]))
-      const img = await this.makeImage(await this.makeQRCode(url))
+      const img = await this.makeMarkdownImage(await this.makeQRCode(url))
       text = text.replace(url, `${img.des}${img.url}`)
     }
     return text.replace(/@/g, "@​")
   }
 
+  async makeBotImage(file) {
+    if (config.toBotUpload) for (const i of Bot.uin) {
+      if (!Bot[i].uploadImage) continue
+      try {
+        const image = await Bot[i].uploadImage(file)
+        if (image.url) return image
+      } catch (err) {
+        Bot.makeLog("error", ["Bot", i, "图片上传错误", file, err])
+      }
+    }
+  }
+
   async makeImage(file) {
-    const buffer = await Bot.Buffer(file)
-    if (!Buffer.isBuffer(buffer)) return {}
+    const image = {
+      buffer: await Bot.Buffer(file),
+    }
+    if (!Buffer.isBuffer(image.buffer)) return {}
 
-    let url
-    if (config.toMd) {
-      url = await Bot.fileToUrl(buffer)
-    } else
-      if (file.match?.(/^https?:\/\//)) url = file
-      else url = await Bot.fileToUrl(buffer)
+    if (file.match?.(/^https?:\/\//)) image.url = file
+    else image.url = await Bot.fileToUrl(image.buffer)
 
-    const size = imageSize(buffer)
+    try {
+      const size = imageSize(image.buffer)
+      image.width = size.width
+      image.height = size.height
+    } catch (err) {
+      Bot.makeLog("error", ["图片分辨率检测错误", file, err])
+    }
+    return image
+  }
+
+  async makeMarkdownImage(file) {
+    const image = (await this.makeBotImage(file)) || (await this.makeImage(file))
     return {
-      des: `![图片 #${size.width}px #${size.height}px]`,
-      url: `(${url})`,
+      des: `![图片 #${image.width || 0}px #${image.height || 0}px]`,
+      url: `(${image.url})`,
     }
   }
 
@@ -198,7 +219,7 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeSilk(i.file)
         case 'video':
           if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
-          messages.push(i)
+          messages.push([i])
           break
         case 'file':
           if (i.file) i.file = await Bot.fileToUrl(i.file, i, type)
@@ -214,7 +235,7 @@ const adapter = new class QQBotAdapter {
           content += await this.makeRawMarkdownText(data, i.text, button)
           break
         case 'image': {
-          const { des, url } = await this.makeImage(i.file)
+          const { des, url } = await this.makeMarkdownImage(i.file)
           content += `${des}${url}`
           break
         } case 'markdown':
@@ -233,7 +254,7 @@ const adapter = new class QQBotAdapter {
             messages.push(...(await this.makeRawMarkdownMsg(data, message)))
           continue
         case 'raw':
-          messages.push(i.data)
+          messages.push([i.data])
           break
         default:
           content += await this.makeRawMarkdownText(data, JSON.stringify(i), button)
@@ -315,7 +336,7 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeSilk(i.file)
         case 'video':
           if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
-          messages.push(i)
+          messages.push([i])
           break
         case 'file':
           if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
@@ -382,11 +403,11 @@ const adapter = new class QQBotAdapter {
             continue
           }
         case 'image': {
-          const { des, url } = await this.makeImage(i.file)
+          const { des, url } = await this.makeMarkdownImage(i.file)
 
           if (template.b) {
             template.b += content
-            messages.push(this.makeMarkdownTemplate(data, template))
+            messages.push([this.makeMarkdownTemplate(data, template)])
             content = ''
             button = []
           }
@@ -399,9 +420,9 @@ const adapter = new class QQBotAdapter {
           break
         } case 'markdown':
           if (typeof i.data == 'object')
-            messages.push({ type: 'markdown', ...i.data })
+            messages.push([{ type: 'markdown', ...i.data }])
           else
-            messages.push({ type: 'markdown', content: i.data })
+            messages.push([{ type: 'markdown', content: i.data }])
           break
         case 'button':
           button.push(...this.makeButtons(data, i.data))
@@ -428,11 +449,7 @@ const adapter = new class QQBotAdapter {
       template = { a: content }
 
     if (template.a)
-      messages.push(this.makeMarkdownTemplate(data, template))
-
-    for (const i in messages)
-      if (!Array.isArray(messages[i]))
-        messages[i] = [messages[i]]
+      messages.push([this.makeMarkdownTemplate(data, template)])
 
     if (button.length) {
       for (const i of messages) {
@@ -480,7 +497,6 @@ const adapter = new class QQBotAdapter {
         case 'record':
           i.type = 'audio'
           i.file = await this.makeSilk(i.file)
-        case 'image':
         case 'video':
           if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
           if (message.some(s => sendType.includes(s.type))) {
@@ -517,7 +533,7 @@ const adapter = new class QQBotAdapter {
             }
             e.runtime = new Runtime(e)
             await Handler.call('ws.tool.toImg', e, i.data)
-            i.file = await Bot.fileToUrl(i.file)
+            // i.file = await Bot.fileToUrl(i.file)
             if (message.some(s => sendType.includes(s.type))) {
               messages.push(message)
               message = []
@@ -525,6 +541,14 @@ const adapter = new class QQBotAdapter {
           } else {
             for (const { message } of i.data)
               messages.push(...(await this.makeMsg(data, message)))
+            break
+          }
+        case "image":
+          const image = await this.makeBotImage(i.file)
+          i.file = image?.url || await Bot.fileToUrl(i.file)
+          if (message.length) {
+            messages.push(message)
+            message = []
           }
           break
         case 'raw':

@@ -10,6 +10,7 @@ const config = {
   permission: "master",
   toQRCode: true,
   toCallback: true,
+  toBotUpload: true,
   toQQUin: false,
   toImg: true,
   saveDBFile: false,
