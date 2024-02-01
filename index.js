@@ -42,6 +42,7 @@ const adapter = new class QQBotAdapter {
 
     this.sep = ':'
     if (process.platform == 'win32') this.sep = config.sep || ''
+    this.bind_user = {}
   }
 
   async makeSilk(file) {
@@ -89,7 +90,7 @@ const adapter = new class QQBotAdapter {
   }
 
   async makeMarkdownImage(file) {
-    const image = (await this.makeBotImage(file)) || {
+    const image = await this.makeBotImage(file) || {
       url: await Bot.fileToUrl(file),
     }
 
@@ -596,7 +597,7 @@ const adapter = new class QQBotAdapter {
           const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
           err = { ...err.response.data, trace_id }
         }
-        Bot.makeLog('error', [`发送消息错误：${Bot.String(msg)}\n`, err], data.self_id)
+        Bot.makeLog("error", ["发送消息错误：", i, err], data.self_id)
         return false
       }
     }
@@ -724,7 +725,7 @@ const adapter = new class QQBotAdapter {
         )
         redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
       } catch (err) {
-        Bot.makeLog("error", [`发送消息错误：${Bot.String(i)}\n`, err], data.self_id)
+        Bot.makeLog("error", ["发送消息错误：", i, err], data.self_id)
         return false
       }
     }
@@ -938,6 +939,28 @@ const adapter = new class QQBotAdapter {
     }, msg, { id: data.message_id })
   }
 
+  setListMap(data) {
+    data.bot.fl.set(data.user_id, {
+      ...data.bot.fl.get(data.user_id),
+      ...data.sender,
+    })
+    if (data.group_id) {
+      data.bot.gl.set(data.group_id, {
+        ...data.bot.gl.get(data.group_id),
+        group_id: data.group_id,
+      })
+      let gml = data.bot.gml.get(data.group_id)
+      if (!gml) {
+        gml = new Map
+        data.bot.gml.set(data.group_id, gml)
+      }
+      gml.set(data.user_id, {
+        ...gml.get(data.user_id),
+        ...data.sender,
+      })
+    }
+  }
+
   async makeMessage(id, event) {
     const data = {
       raw: event,
@@ -975,19 +998,6 @@ const adapter = new class QQBotAdapter {
         return
     }
 
-    data.bot.fl.set(data.user_id, { ...data.sender, type: event.message_type })
-    if (data.group_id) {
-      data.bot.gl.set(data.group_id, {
-        group_id: data.group_id,
-      })
-      let gml = data.bot.gml.get(data.group_id)
-      if (!gml) {
-        gml = new Map
-        data.bot.gml.set(data.group_id, gml)
-      }
-      gml.set(data.user_id, data.sender)
-    }
-
     data.bot.stat.recv_msg_cnt++
     let needSetRedis = false
     DAU[this.uin].msg_count++
@@ -1007,6 +1017,71 @@ const adapter = new class QQBotAdapter {
     )
     if (needSetRedis) redis.set(`QQBotDAU:${this.uin}`, JSON.stringify(DAU[this.uin]), { EX })
     redis.set(`QQBotDAU:msg_count:${this.uin}`, DAU[this.uin].msg_count * 1, { EX })
+
+    this.setListMap(data)
+    Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
+  }
+
+  async makeBotCallback(id, event, callback) {
+    const data = {
+      raw: event,
+      bot: Bot[callback.self_id],
+      self_id: callback.self_id,
+      post_type: "message",
+      message_id: event.notice_id,
+      message_type: callback.group_id ? "group" : "private",
+      sub_type: "callback",
+      get user_id() { return this.sender.user_id },
+      sender: { user_id: `${id}${this.sep}${event.operator_id}` },
+      message: [],
+      raw_message: "",
+    }
+
+    data.message.push(
+      { type: "at", qq: callback.self_id },
+      { type: "text", text: callback.message },
+    )
+    data.raw_message += callback.message
+
+    if (callback.group_id) {
+      data.group_id = callback.group_id
+      data.group = data.bot.pickGroup(callback.group_id)
+      data.group_name = data.group.name
+      data.friend = Bot[id].pickFriend(data.user_id)
+      if (data.friend.real_id) {
+        data.friend = data.bot.pickFriend(data.friend.real_id)
+        data.member = data.group.pickMember(data.friend.user_id)
+        data.sender = {
+          ...await data.member.getInfo() || data.member,
+        }
+      } else {
+        if (callback[data.user_id])
+          return event.reply(3)
+        callback[data.user_id] = true
+
+        let msg = `请先发送 #QQBot绑定用户${data.user_id}`
+        const real_id = callback.message.replace(/^#[Qq]+[Bb]ot绑定用户确认/, "").trim()
+        if (this.bind_user[real_id] == data.user_id) {
+          Bot[id].fl.set(data.user_id, {
+            ...data.bot.fl.get(data.user_id), real_id,
+          })
+          msg = `绑定成功 ${data.user_id} → ${real_id}`
+        }
+        event.reply(0)
+        return data.group.sendMsg(msg)
+      }
+      Bot.makeLog("info", [`群按钮点击事件：[${data.group_name}(${data.group_id}), ${data.sender.nickname}(${data.user_id})]`, data.raw_message], data.self_id)
+    } else {
+      Bot[id].fl.set(data.user_id, {
+        ...data.bot.fl.get(data.user_id),
+        real_id: callback.user_id,
+      })
+      data.friend = data.bot.pickFriend(callback.user_id)
+      if (data.friend.getInfo)
+        data.sender = await data.friend.getInfo()
+      Bot.makeLog("info", [`好友按钮点击事件：[${data.sender.nickname}(${data.user_id})]`, data.raw_message], data.self_id)
+    }
+    event.reply(0)
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
@@ -1027,6 +1102,8 @@ const adapter = new class QQBotAdapter {
 
     const callback = data.bot.callback[event.data?.resolved?.button_id]
     if (callback) {
+      if (callback.self_id)
+        return this.makeBotCallback(id, event, callback)
       if (!event.group_id && callback.group_id)
         event.group_id = callback.group_id
       data.message_id = callback.id
@@ -1054,6 +1131,7 @@ const adapter = new class QQBotAdapter {
     switch (data.message_type) {
       case "direct":
       case "friend":
+        data.message_type = "private"
         Bot.makeLog("info", [`好友按钮点击事件：[${data.user_id}]`, data.raw_message], data.self_id)
         data.reply = msg => this.sendFriendMsg({ ...data, user_id: event.operator_id }, msg, { id: data.message_id })
         break
@@ -1068,6 +1146,7 @@ const adapter = new class QQBotAdapter {
         Bot.makeLog("warn", ["未知按钮点击事件", event], data.self_id)
     }
 
+    this.setListMap(data)
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
@@ -1255,6 +1334,10 @@ export class QQBotAdapter extends plugin {
           reg: '^#[Qq]+[Bb]ot[Dd][Aa][Uu]',
           fnc: 'DAUStat',
           permission: config.permission
+        },
+        {
+          reg: "^#[Qq]+[Bb]ot绑定用户.+$",
+          fnc: "BindUser",
         }
       ]
     })
@@ -1473,6 +1556,22 @@ export class QQBotAdapter extends plugin {
     })
 
     return daus
+  }
+
+  BindUser() {
+    const id = this.e.msg.replace(/^#[Qq]+[Bb]ot绑定用户(确认)?/, "").trim()
+    if (id == this.e.user_id)
+      return this.reply("请切换到对应Bot")
+
+    adapter.bind_user[this.e.user_id] = id
+    this.reply([
+      `绑定 ${id} → ${this.e.user_id}`,
+      segment.button([{
+        text: "确认绑定",
+        callback: `#QQBot绑定用户确认${this.e.user_id}`,
+        permission: this.e.user_id
+      }])
+    ])
   }
 }
 
