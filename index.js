@@ -170,8 +170,10 @@ const adapter = new class QQBotAdapter {
         msg.action.permission.specify_user_ids = []
         if (!Array.isArray(button.permission))
           button.permission = [button.permission]
-        for (const id of button.permission)
+        for (let id of button.permission) {
+          if (config.toQQUin && userIdCache[id]) id = userIdCache[id]
           msg.action.permission.specify_user_ids.push(id.replace(`${data.self_id}${this.sep}`, ''))
+        }
       }
     }
     return msg
