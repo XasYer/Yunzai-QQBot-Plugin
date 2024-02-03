@@ -1301,7 +1301,7 @@ const adapter = new class QQBotAdapter {
 Bot.adapter.push(adapter)
 
 export class QQBotAdapter extends plugin {
-  constructor() {
+  constructor () {
     super({
       name: 'QQBotAdapter',
       dsc: 'QQBot 适配器设置',
@@ -1338,14 +1338,14 @@ export class QQBotAdapter extends plugin {
           permission: config.permission
         },
         {
-          reg: "^#[Qq]+[Bb]ot绑定用户.+$",
-          fnc: "BindUser",
+          reg: '^#[Qq]+[Bb]ot绑定用户.+$',
+          fnc: 'BindUser'
         }
       ]
     })
   }
 
-  async init() {
+  async init () {
     // dau数据合并
     let dauPath = './data/QQBotDAU'
     if (fs.existsSync(dauPath)) {
@@ -1353,11 +1353,11 @@ export class QQBotAdapter extends plugin {
     }
   }
 
-  List() {
+  List () {
     this.reply(`共${config.token.length}个账号：\n${config.token.join('\n')}`, true)
   }
 
-  async Token() {
+  async Token () {
     const token = this.e.msg.replace(/^#[Qq]+[Bb]ot设置/, '').trim()
     if (config.token.includes(token)) {
       config.token = config.token.filter(item => item != token)
@@ -1374,7 +1374,7 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  Markdown() {
+  Markdown () {
     let token = this.e.msg.replace(/^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?/, '').trim().split(':')
     const bot_id = token.shift()
     token = token.join(':')
@@ -1383,21 +1383,21 @@ export class QQBotAdapter extends plugin {
     configSave(config)
   }
 
-  async Setting() {
+  async Setting () {
     const toQQUin = !!this.e.msg.includes('开启')
     config.toQQUin = toQQUin
     this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
     configSave(config)
   }
 
-  async btnCallback() {
+  async btnCallback () {
     const callback = !!this.e.msg.includes('开启')
     config.toCallback = callback
     this.reply('设置成功,已' + (callback ? '开启' : '关闭'), true)
     configSave(config)
   }
 
-  async DAUStat() {
+  async DAUStat () {
     const pro = !!/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/.exec(this.e.msg)[1]
     const uin = this.e.msg.replace(/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/, '') || this.e.self_id
     const dau = DAU[uin]
@@ -1509,12 +1509,26 @@ export class QQBotAdapter extends plugin {
     this.reply(msg.join('\n'), true)
   }
 
-  mergeDAU(dauPath) {
+  mergeDAU (dauPath) {
     let daus = this.getAllDAU(dauPath)
     if (!daus.length) return false
 
     daus = _.filter(daus, v => v.endsWith('.json'))
-    if (_.some(daus, v => v.split('-').length === 2)) return false
+    if (_.some(daus, v => v.split('-').length === 2)) {
+      const path2 = daus.find(v => v.includes('2024-02'))
+      if (fs.existsSync(path2)) {
+        const data2 = JSON.parse(fs.readFileSync(path2, 'utf8'))
+        const errdata = data2.find(v => v.time === '2024-01-31')
+        if (errdata) {
+          const path1 = daus.find(v => v.includes('2024-01'))
+          const data1 = fs.existsSync(path1) ? JSON.parse(fs.readFileSync(path1, 'utf8')) : []
+          data1.push(errdata)
+          fs.writeFile(path1, JSON.stringify(data1, '', '\t'), 'utf-8', () => { })
+          fs.writeFile(path2, JSON.stringify(_.tail(data2), '', '\t'), 'utf-8', () => { })
+        }
+      }
+      return false
+    }
 
     daus = _.groupBy(daus, v => v.slice(0, v.lastIndexOf('/')))
     logger.info('[QQBOT]正在合并DAU数据中，请稍等...')
@@ -1545,7 +1559,7 @@ export class QQBotAdapter extends plugin {
     }
   }
 
-  getAllDAU(dauPath) {
+  getAllDAU (dauPath) {
     let dirs = fs.readdirSync(dauPath, { withFileTypes: true })
     if (_.isEmpty(dirs)) return dirs
 
@@ -1560,16 +1574,15 @@ export class QQBotAdapter extends plugin {
     return daus
   }
 
-  BindUser() {
-    const id = this.e.msg.replace(/^#[Qq]+[Bb]ot绑定用户(确认)?/, "").trim()
-    if (id == this.e.user_id)
-      return this.reply("请切换到对应Bot")
+  BindUser () {
+    const id = this.e.msg.replace(/^#[Qq]+[Bb]ot绑定用户(确认)?/, '').trim()
+    if (id == this.e.user_id) return this.reply('请切换到对应Bot')
 
     adapter.bind_user[this.e.user_id] = id
     this.reply([
       `绑定 ${id} → ${this.e.user_id}`,
       segment.button([{
-        text: "确认绑定",
+        text: '确认绑定',
         callback: `#QQBot绑定用户确认${this.e.user_id}`,
         permission: this.e.user_id
       }])
@@ -1579,7 +1592,7 @@ export class QQBotAdapter extends plugin {
 
 logger.info(logger.green('- QQBot 适配器插件 加载完成'))
 
-async function getDAU(uin) {
+async function getDAU (uin) {
   const time = getNowDate()
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
@@ -1603,7 +1616,7 @@ async function getDAU(uin) {
   }
 }
 
-function getNowDate() {
+function getNowDate () {
   const date = new Date()
   const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
   const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
@@ -1612,7 +1625,7 @@ function getNowDate() {
 
 // 每天零点清除DAU统计并保存到文件
 schedule.scheduleJob('0 0 0 * * ?', () => {
-  const yearMonth = moment().format('YYYY-MM')
+  const yesMonth = moment().subtract(1, 'd').format('YYYY-MM')
   const time = getNowDate()
   const path = join(process.cwd(), 'data', 'QQBotDAU')
   if (!fs.existsSync(path)) fs.mkdirSync(path)
@@ -1631,7 +1644,7 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
         time
       }
       if (!fs.existsSync(join(path, key))) fs.mkdirSync(join(path, key))
-      let filePath = join(path, key, `${yearMonth}.json`)
+      let filePath = join(path, key, `${yesMonth}.json`)
       let file = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : []
       file.push(data)
       fs.writeFile(filePath, JSON.stringify(file, '', '\t'), 'utf-8', () => { })
