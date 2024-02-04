@@ -195,6 +195,8 @@ const adapter = new class QQBotAdapter {
 
 
   async makeRawMarkdownMsg(data, msg) {
+    if (!Array.isArray(msg))
+      msg = [msg]
     const messages = []
     let content = ''
     const button = []
@@ -308,6 +310,8 @@ const adapter = new class QQBotAdapter {
   }
 
   async makeMarkdownMsg(data, msg) {
+    if (!Array.isArray(msg))
+      msg = [msg]
     const messages = []
     let content = ''
     let button = []
@@ -462,6 +466,8 @@ const adapter = new class QQBotAdapter {
 
   async makeMsg(data, msg) {
     const sendType = ['audio', 'image', 'video', 'file']
+    if (!Array.isArray(msg))
+      msg = [msg]
     const messages = []
     let message = []
     let reply
@@ -570,8 +576,6 @@ const adapter = new class QQBotAdapter {
   }
 
   async sendMsg(data, send, msg) {
-    if (!Array.isArray(msg))
-      msg = [msg]
     const rets = { message_id: [], data: [] }
     let msgs
 
@@ -630,6 +634,8 @@ const adapter = new class QQBotAdapter {
   }
 
   async makeGuildMsg(data, msg) {
+    if (!Array.isArray(msg))
+      msg = [msg]
     const messages = []
     let message = []
     let reply
@@ -702,8 +708,6 @@ const adapter = new class QQBotAdapter {
   }
 
   async sendGMsg(data, send, msg) {
-    if (!Array.isArray(msg))
-      msg = [msg]
     const rets = { message_id: [], data: [] }
     let msgs
 
@@ -1075,9 +1079,8 @@ const adapter = new class QQBotAdapter {
         real_id: callback.user_id,
       })
       data.friend = data.bot.pickFriend(callback.user_id)
-      data.sender = {
-        ...await data.friend.getInfo() || data.friend,
-      }
+      if (data.friend.getInfo)
+        data.sender = await data.friend.getInfo()
       Bot.makeLog("info", [`好友按钮点击事件：[${data.sender.nickname}(${data.user_id})]`, data.raw_message], data.self_id)
     }
     event.reply(0)
@@ -1298,7 +1301,7 @@ const adapter = new class QQBotAdapter {
 Bot.adapter.push(adapter)
 
 export class QQBotAdapter extends plugin {
-  constructor () {
+  constructor() {
     super({
       name: 'QQBotAdapter',
       dsc: 'QQBot 适配器设置',
@@ -1342,7 +1345,7 @@ export class QQBotAdapter extends plugin {
     })
   }
 
-  async init () {
+  async init() {
     // dau数据合并
     let dauPath = './data/QQBotDAU'
     if (fs.existsSync(dauPath)) {
@@ -1350,11 +1353,11 @@ export class QQBotAdapter extends plugin {
     }
   }
 
-  List () {
+  List() {
     this.reply(`共${config.token.length}个账号：\n${config.token.join('\n')}`, true)
   }
 
-  async Token () {
+  async Token() {
     const token = this.e.msg.replace(/^#[Qq]+[Bb]ot设置/, '').trim()
     if (config.token.includes(token)) {
       config.token = config.token.filter(item => item != token)
@@ -1368,33 +1371,33 @@ export class QQBotAdapter extends plugin {
         return false
       }
     }
-    configSave()
+    configSave(config)
   }
 
-  Markdown () {
+  Markdown() {
     let token = this.e.msg.replace(/^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?/, '').trim().split(':')
     const bot_id = token.shift()
     token = token.join(':')
     this.reply(`Bot ${bot_id} Markdown 模板已设置为 ${token}`, true)
     config.markdown[bot_id] = token
-    configSave()
+    configSave(config)
   }
 
-  async Setting () {
+  async Setting() {
     const toQQUin = !!this.e.msg.includes('开启')
     config.toQQUin = toQQUin
     this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
-    configSave()
+    configSave(config)
   }
 
-  async btnCallback () {
+  async btnCallback() {
     const callback = !!this.e.msg.includes('开启')
     config.toCallback = callback
     this.reply('设置成功,已' + (callback ? '开启' : '关闭'), true)
-    configSave()
+    configSave(config)
   }
 
-  async DAUStat () {
+  async DAUStat() {
     const pro = !!/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/.exec(this.e.msg)[1]
     const uin = this.e.msg.replace(/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/, '') || this.e.self_id
     const dau = DAU[uin]
@@ -1506,7 +1509,7 @@ export class QQBotAdapter extends plugin {
     this.reply(msg.join('\n'), true)
   }
 
-  mergeDAU (dauPath) {
+  mergeDAU(dauPath) {
     let daus = this.getAllDAU(dauPath)
     if (!daus.length) return false
 
@@ -1556,7 +1559,7 @@ export class QQBotAdapter extends plugin {
     }
   }
 
-  getAllDAU (dauPath) {
+  getAllDAU(dauPath) {
     let dirs = fs.readdirSync(dauPath, { withFileTypes: true })
     if (_.isEmpty(dirs)) return dirs
 
@@ -1571,7 +1574,7 @@ export class QQBotAdapter extends plugin {
     return daus
   }
 
-  BindUser () {
+  BindUser() {
     const id = this.e.msg.replace(/^#[Qq]+[Bb]ot绑定用户(确认)?/, '').trim()
     if (id == this.e.user_id) return this.reply('请切换到对应Bot')
 
@@ -1589,7 +1592,7 @@ export class QQBotAdapter extends plugin {
 
 logger.info(logger.green('- QQBot 适配器插件 加载完成'))
 
-async function getDAU (uin) {
+async function getDAU(uin) {
   const time = getNowDate()
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
@@ -1613,7 +1616,7 @@ async function getDAU (uin) {
   }
 }
 
-function getNowDate () {
+function getNowDate() {
   const date = new Date()
   const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
   const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
@@ -1622,7 +1625,7 @@ function getNowDate () {
 
 // 每天零点清除DAU统计并保存到文件
 schedule.scheduleJob('0 0 0 * * ?', () => {
-  const yesMonth = moment().subtract(1, 'd').format('YYYY-MM')
+  const yearMonth = moment().format('YYYY-MM')
   const time = getNowDate()
   const path = join(process.cwd(), 'data', 'QQBotDAU')
   if (!fs.existsSync(path)) fs.mkdirSync(path)
@@ -1641,7 +1644,7 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
         time
       }
       if (!fs.existsSync(join(path, key))) fs.mkdirSync(join(path, key))
-      let filePath = join(path, key, `${yesMonth}.json`)
+      let filePath = join(path, key, `${yearMonth}.json`)
       let file = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : []
       file.push(data)
       fs.writeFile(filePath, JSON.stringify(file, '', '\t'), 'utf-8', () => { })
