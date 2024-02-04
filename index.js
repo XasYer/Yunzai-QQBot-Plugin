@@ -45,7 +45,30 @@ const adapter = new class QQBotAdapter {
     this.bind_user = {}
   }
 
-  async makeSilk(file) {
+  async makeVideo(file) {
+    if (config.toBotUpload) for (const i of Bot.uin) {
+      if (!Bot[i].uploadVideo) continue
+      try {
+        const url = await Bot[i].uploadVideo(file)
+        if (url) return url
+      } catch (err) {
+        Bot.makeLog("error", ["Bot", i, "视频上传错误", file, err])
+      }
+    }
+    return Bot.fileToUrl(file)
+  }
+
+  async makeRecord(file) {
+    if (config.toBotUpload) for (const i of Bot.uin) {
+      if (!Bot[i].uploadRecord) continue
+      try {
+        const url = await Bot[i].uploadRecord(file)
+        if (url) return url
+      } catch (err) {
+        Bot.makeLog("error", ["Bot", i, "语音上传错误", file, err])
+      }
+    }
+
     const inputFile = path.join('temp', randomUUID())
     const pcmFile = path.join('temp', randomUUID())
 
@@ -60,7 +83,7 @@ const adapter = new class QQBotAdapter {
     for (const i of [inputFile, pcmFile])
       try { fs.unlinkSync(i) } catch (err) { }
 
-    return file
+    return Bot.fileToUrl(file)
   }
 
   async makeQRCode(data) {
@@ -209,9 +232,11 @@ const adapter = new class QQBotAdapter {
       switch (i.type) {
         case 'record':
           i.type = 'audio'
-          i.file = await this.makeSilk(i.file)
+          i.file = await this.makeRecord(i.file)
+          messages.push([i])
+          break
         case 'video':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
+          i.file = await this.makeVideo(i.file)
           messages.push([i])
           break
         case 'file':
@@ -324,9 +349,11 @@ const adapter = new class QQBotAdapter {
       switch (i.type) {
         case 'record':
           i.type = 'audio'
-          i.file = await this.makeSilk(i.file)
+          i.file = await this.makeRecord(i.file)
+          messages.push([i])
+          break
         case 'video':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
+          i.file = await this.makeVideo(i.file)
           messages.push([i])
           break
         case 'file':
@@ -485,10 +512,15 @@ const adapter = new class QQBotAdapter {
           break
         case 'record':
           i.type = 'audio'
-          i.file = await this.makeSilk(i.file)
+          i.file = await this.makeRecord(i.file)
+          if (message.length) {
+            messages.push(message)
+            message = []
+          }
+          break
         case 'video':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, {}, i.type)
-          if (message.some(s => sendType.includes(s.type))) {
+          i.file = await this.makeVideo(i.file)
+          if (message.length) {
             messages.push(message)
             message = []
           }
