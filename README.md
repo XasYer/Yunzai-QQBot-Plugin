@@ -46,7 +46,7 @@ TRSS-Yunzai QQBot 适配器 插件
 ## 发送文件（图片/语音/视频）
 
 - 使用公网地址，填入 `config/config/bot.yaml:url`，浏览器打开 url，后台日志应显示访问请求
-- 使用其他 Bot，如 [ICQQ](../../../Yunzai-ICQQ-Plugin)
+- 使用其他 Bot，如 [ICQQ](https://gitee.com/TimeRainStarSky/Yunzai-ICQQ-Plugin)
 
 ## 高阶能力
 
