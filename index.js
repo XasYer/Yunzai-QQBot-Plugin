@@ -632,7 +632,7 @@ const adapter = new class QQBotAdapter {
       }
     }
 
-    if (config.markdown[data.self_id] || data.toQQBotMD === true) {
+    if (config.markdown[data.self_id] || (data.toQQBotMD === true && config.customMD[data.self_id])) {
       if (config.markdown[data.self_id] == 'raw')
         msgs = await this.makeRawMarkdownMsg(data, msg)
       else
