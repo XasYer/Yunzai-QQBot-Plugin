@@ -1592,7 +1592,8 @@ export class QQBotAdapter extends plugin {
   }
 
   async callStat() {
-    const arr = Object.entries(callStats[this.e.self_id]).sort((a, b) => a[1] - b[1])
+    if (!callStats[this.e.self_id]) return false
+    const arr = Object.entries(callStats[this.e.self_id]).sort((a, b) => b[1] - a[1])
     const msg = [getNowDate()]
     for (let i = 0; i < 10; i++) {
       if (!arr[i]) break
