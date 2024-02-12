@@ -17,6 +17,7 @@ import _ from 'lodash'
 
 const userIdCache = {}
 const DAU = {}
+const callStats = {}
 let findUser_id
 setTimeout(async () => {
   findUser_id = await (async () => {
@@ -642,12 +643,12 @@ const adapter = new class QQBotAdapter {
         rets.data.push(ret)
         if (ret.msg_id)
           rets.message_id.push(ret.msg_id)
-        DAU[this.uin].send_count++
+        DAU[data.self_id].send_count++
         const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
         const EX = Math.round(
           (new Date(time).getTime() - new Date().getTime()) / 1000
         )
-        redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
+        redis.set(`QQBotDAU:send_count:${data.self_id}`, DAU[data.self_id].send_count * 1, { EX })
       } catch (err) {
         if (err.response?.data) {
           const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
@@ -671,6 +672,12 @@ const adapter = new class QQBotAdapter {
       msgs = await this.makeMsg(data, msg)
       await sendMsg()
     }
+
+    if (!data.QQBotSetLogFnc) {
+      setLogFnc(data)
+      data.QQBotSetLogFnc = true
+    }
+
 
     if (Array.isArray(data._ret_id))
       data._ret_id.push(...rets.message_id)
@@ -772,12 +779,12 @@ const adapter = new class QQBotAdapter {
         rets.data.push(ret)
         if (ret.id)
           rets.message_id.push(ret.id)
-        DAU[this.uin].send_count++
+        DAU[data.self_id].send_count++
         const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
         const EX = Math.round(
           (new Date(time).getTime() - new Date().getTime()) / 1000
         )
-        redis.set(`QQBotDAU:send_count:${this.uin}`, DAU[this.uin].send_count * 1, { EX })
+        redis.set(`QQBotDAU:send_count:${data.self_id}`, DAU[data.self_id].send_count * 1, { EX })
       } catch (err) {
         Bot.makeLog('error', ['发送消息错误：', i, err], data.self_id)
         return false
@@ -788,6 +795,10 @@ const adapter = new class QQBotAdapter {
     if (await sendMsg() === false) {
       msgs = await this.makeGuildMsg(data, msg)
       await sendMsg()
+    }
+    if (!data.QQBotSetLogFnc) {
+      setLogFnc(data)
+      data.QQBotSetLogFnc = true
     }
     return rets
   }
@@ -1065,23 +1076,23 @@ const adapter = new class QQBotAdapter {
 
     data.bot.stat.recv_msg_cnt++
     let needSetRedis = false
-    DAU[this.uin].msg_count++
-    if (data.group_id && !DAU[this.uin].group_cache[data.group_id]) {
-      DAU[this.uin].group_cache[data.group_id] = 1
-      DAU[this.uin].group_count++
+    DAU[data.self_id].msg_count++
+    if (data.group_id && !DAU[data.self_id].group_cache[data.group_id]) {
+      DAU[data.self_id].group_cache[data.group_id] = 1
+      DAU[data.self_id].group_count++
       needSetRedis = true
     }
-    if (data.user_id && !DAU[this.uin].user_cache[data.user_id]) {
-      DAU[this.uin].user_cache[data.user_id] = 1
-      DAU[this.uin].user_count++
+    if (data.user_id && !DAU[data.self_id].user_cache[data.user_id]) {
+      DAU[data.self_id].user_cache[data.user_id] = 1
+      DAU[data.self_id].user_count++
       needSetRedis = true
     }
     const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
     const EX = Math.round(
       (new Date(time).getTime() - new Date().getTime()) / 1000
     )
-    if (needSetRedis) redis.set(`QQBotDAU:${this.uin}`, JSON.stringify(DAU[this.uin]), { EX })
-    redis.set(`QQBotDAU:msg_count:${this.uin}`, DAU[this.uin].msg_count * 1, { EX })
+    if (needSetRedis) redis.set(`QQBotDAU:${data.self_id}`, JSON.stringify(DAU[data.self_id]), { EX })
+    redis.set(`QQBotDAU:msg_count:${data.self_id}`, DAU[data.self_id].msg_count * 1, { EX })
 
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
@@ -1313,7 +1324,7 @@ const adapter = new class QQBotAdapter {
       uin: id,
       info: { id },
       get nickname() { return this.sdk.nickname },
-      get avatar() { return `https://q1.qlogo.cn/g?b=qq&s=0&nk=${this.uin}` },
+      get avatar() { return `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}` },
 
       version: {
         id: this.id,
@@ -1350,8 +1361,8 @@ const adapter = new class QQBotAdapter {
 
     logger.mark(`${logger.blue(`[${id}]`)} ${this.name}(${this.id}) ${this.version} 已连接`)
     Bot.em(`connect.${id}`, { self_id: id })
-    this.uin = id
     DAU[id] = await getDAU(id)
+    callStats[id] = await getCallStats(id)
     return true
   }
 
@@ -1401,6 +1412,11 @@ export class QQBotAdapter extends plugin {
         {
           reg: '^#[Qq]+[Bb]ot[Dd][Aa][Uu]',
           fnc: 'DAUStat',
+          permission: config.permission
+        },
+        {
+          reg: '^#[Qq]+[Bb]ot调用统计$',
+          fnc: 'callStat',
           permission: config.permission
         },
         {
@@ -1575,6 +1591,17 @@ export class QQBotAdapter extends plugin {
     this.reply(msg.join('\n'), true)
   }
 
+  async callStat() {
+    const arr = Object.entries(callStats[this.e.self_id]).sort((a, b) => a[1] - b[1])
+    const msg = [getNowDate()]
+    for (let i = 0; i < 10; i++) {
+      if (!arr[i]) break
+      const s = arr[i]
+      msg.push(`${i + 1}: ${s[0]}\t\t${s[1]}次`)
+    }
+    this.reply(msg.join('\n'), true)
+  }
+
   mergeDAU(dauPath) {
     let daus = this.getAllDAU(dauPath)
     if (!daus.length) return false
@@ -1687,6 +1714,27 @@ function getNowDate() {
   const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
   const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
   return `${year}-${month}-${day}`
+}
+
+async function getCallStats(id) {
+  const data = await redis.get(`QQBotCallStats:${id}`)
+  if (data) {
+    return JSON.parse(data)
+  }
+  return {}
+}
+
+async function setLogFnc(e) {
+  if (!e.logFnc) return
+  if (!callStats[e.self_id]) callStats[e.self_id] = {}
+  const stats = callStats[e.self_id]
+  if (!stats[e.logFnc]) stats[e.logFnc] = 0
+  stats[e.logFnc]++
+  const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
+  const EX = Math.round(
+    (new Date(time).getTime() - new Date().getTime()) / 1000
+  )
+  redis.set(`QQBotCallStats:${e.self_id}`, JSON.stringify(stats), { EX })
 }
 
 // 每天零点清除DAU统计并保存到文件
