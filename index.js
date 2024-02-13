@@ -1744,6 +1744,9 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
       logger.error('清除DAU数据出错,key: ' + key, error)
     }
   }
+  for (const key in callStats) {
+    callStats[key] = {}
+  }
 })
 
 // 硬核
