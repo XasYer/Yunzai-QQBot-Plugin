@@ -640,12 +640,7 @@ const adapter = new class QQBotAdapter {
 
           rets.data.push(ret)
           if (ret.msg_id) rets.message_id.push(ret.msg_id)
-          DAU[data.self_id].send_count++
-          const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
-          const EX = Math.round(
-            (new Date(time).getTime() - new Date().getTime()) / 1000
-          )
-          redis.set(`QQBotDAU:send_count:${data.self_id}`, DAU[data.self_id].send_count * 1, { EX })
+          setDAU(data, 'send_count')
         } catch (err) {
           if (err.response?.data) {
             const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
@@ -769,12 +764,7 @@ const adapter = new class QQBotAdapter {
 
           rets.data.push(ret)
           if (ret.id) rets.message_id.push(ret.id)
-          DAU[data.self_id].send_count++
-          const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
-          const EX = Math.round(
-            (new Date(time).getTime() - new Date().getTime()) / 1000
-          )
-          redis.set(`QQBotDAU:send_count:${data.self_id}`, DAU[data.self_id].send_count * 1, { EX })
+          setDAU(data, 'send_count')
         } catch (err) {
           Bot.makeLog('error', ['发送消息错误：', i, err], data.self_id)
           return false
@@ -1060,25 +1050,7 @@ const adapter = new class QQBotAdapter {
     }
 
     data.bot.stat.recv_msg_cnt++
-    let needSetRedis = false
-    DAU[data.self_id].msg_count++
-    if (data.group_id && !DAU[data.self_id].group_cache[data.group_id]) {
-      DAU[data.self_id].group_cache[data.group_id] = 1
-      DAU[data.self_id].group_count++
-      needSetRedis = true
-    }
-    if (data.user_id && !DAU[data.self_id].user_cache[data.user_id]) {
-      DAU[data.self_id].user_cache[data.user_id] = 1
-      DAU[data.self_id].user_count++
-      needSetRedis = true
-    }
-    const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
-    const EX = Math.round(
-      (new Date(time).getTime() - new Date().getTime()) / 1000
-    )
-    if (needSetRedis) redis.set(`QQBotDAU:${data.self_id}`, JSON.stringify(DAU[data.self_id]), { EX })
-    redis.set(`QQBotDAU:msg_count:${data.self_id}`, DAU[data.self_id].msg_count * 1, { EX })
-
+    setDAU(data, 'msg_count')
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
@@ -1572,13 +1544,13 @@ export class QQBotAdapter extends plugin {
   async callStat() {
     if (!callStats[this.e.self_id]) return false
     const arr = Object.entries(callStats[this.e.self_id]).sort((a, b) => b[1] - a[1])
-    const msg = [getNowDate()]
+    const msg = [getNowDate(), '数据可能不准确,请自行识别']
     for (let i = 0; i < 10; i++) {
       if (!arr[i]) break
       const s = arr[i]
       msg.push(`${i + 1}: ${s[0].replace(/[^\[].*-[pP]lugin\/?/, '')}\t\t${s[1]}次`)
     }
-    this.reply(msg.join('\n'), true)
+    this.reply(msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), true)
   }
 
   mergeDAU(dauPath) {
@@ -1685,6 +1657,35 @@ async function getDAU(uin) {
       group_cache: {},
       time
     }
+  }
+}
+
+/**
+ * @param {'send_count'|'msg_count'} type 
+ */
+function setDAU(data, type) {
+  const time = moment(Date.now()).add(1, 'days').format('YYYY-MM-DD 00:00:00')
+  const EX = Math.round(
+    (new Date(time).getTime() - new Date().getTime()) / 1000
+  )
+  if (type === 'send_count') {
+    DAU[data.self_id].send_count++
+    redis.set(`QQBotDAU:send_count:${data.self_id}`, DAU[data.self_id].send_count * 1, { EX })
+  } else if (type === 'msg_count') {
+    let needSetRedis = false
+    DAU[data.self_id].msg_count++
+    if (data.group_id && !DAU[data.self_id].group_cache[data.group_id]) {
+      DAU[data.self_id].group_cache[data.group_id] = 1
+      DAU[data.self_id].group_count++
+      needSetRedis = true
+    }
+    if (data.user_id && !DAU[data.self_id].user_cache[data.user_id]) {
+      DAU[data.self_id].user_cache[data.user_id] = 1
+      DAU[data.self_id].user_count++
+      needSetRedis = true
+    }
+    if (needSetRedis) redis.set(`QQBotDAU:${data.self_id}`, JSON.stringify(DAU[data.self_id]), { EX })
+    redis.set(`QQBotDAU:msg_count:${data.self_id}`, DAU[data.self_id].msg_count * 1, { EX })
   }
 }
 
