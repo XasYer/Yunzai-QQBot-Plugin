@@ -38,6 +38,7 @@ const { config, configSave } = await makeConfig('QQBot', {
   toQQUin: false,
   toImg: true,
   saveDBFile: false,
+  callStats: false,
   markdown: {},
   customMD: {},
   bot: {
@@ -646,7 +647,7 @@ const adapter = new class QQBotAdapter {
             const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
             err = { ...err.response.data, trace_id }
           }
-          Bot.makeLog('error', ['发送消息错误：', i, err], data.self_id)
+          Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
           return false
         }
       }
@@ -663,22 +664,17 @@ const adapter = new class QQBotAdapter {
       await sendMsg()
     }
 
-    if (!data.QQBotSetLogFnc) {
-      setLogFnc(data)
-      data.QQBotSetLogFnc = true
-    }
+    setLogFnc(data)
 
     if (Array.isArray(data._ret_id)) { data._ret_id.push(...rets.message_id) }
     return rets
   }
 
   sendFriendMsg(data, msg, event) {
-    Bot.makeLog('info', `发送好友消息：[${data.user_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendMsg(data, msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
   }
 
   sendGroupMsg(data, msg, event) {
-    Bot.makeLog('info', `发送群消息：[${data.group_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
   }
 
@@ -766,7 +762,7 @@ const adapter = new class QQBotAdapter {
           if (ret.id) rets.message_id.push(ret.id)
           setDAU(data, 'send_count')
         } catch (err) {
-          Bot.makeLog('error', ['发送消息错误：', i, err], data.self_id)
+          Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
           return false
         }
       }
@@ -787,7 +783,7 @@ const adapter = new class QQBotAdapter {
   async sendDirectMsg(data, msg, event) {
     if (!data.guild_id) {
       if (!data.src_guild_id) {
-        Bot.makeLog('error', `发送频道消息失败：[${data.user_id}] 不存在来源频道信息 ${Bot.String(msg)}`, data.self_id)
+        Bot.makeLog('error', [`发送频道消息失败：[${data.user_id}] 不存在来源频道信息`, msg], data.self_id)
         return false
       }
       const dms = await data.bot.sdk.createDirectSession(data.src_guild_id, data.user_id)
@@ -798,12 +794,10 @@ const adapter = new class QQBotAdapter {
         ...dms
       })
     }
-    Bot.makeLog('info', `发送频道私聊消息：[${data.guild_id}, ${data.user_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendGMsg(data, msg => data.bot.sdk.sendDirectMessage(data.guild_id, msg, event), msg)
   }
 
   sendGuildMsg(data, msg, event) {
-    Bot.makeLog('info', `发送频道消息：[${data.guild_id}-${data.channel_id}] ${Bot.String(msg)}`, data.self_id)
     return this.sendGMsg(data, msg => data.bot.sdk.sendGuildMessage(data.channel_id, msg, event), msg)
   }
 
@@ -1360,6 +1354,11 @@ export class QQBotAdapter extends plugin {
           permission: config.permission
         },
         {
+          reg: '^#[Qq]+[Bb]ot设置调用统计\\s*(开启|关闭)$',
+          fnc: 'setCallStats',
+          permission: config.permission
+        },
+        {
           reg: '^#[Qq]+[Bb]ot[Dd][Aa][Uu]',
           fnc: 'DAUStat',
           permission: config.permission
@@ -1426,6 +1425,13 @@ export class QQBotAdapter extends plugin {
     const callback = !!this.e.msg.includes('开启')
     config.toCallback = callback
     this.reply('设置成功,已' + (callback ? '开启' : '关闭'), true)
+    await configSave()
+  }
+
+  async setCallStats() {
+    const callStats = !!this.e.msg.includes('开启')
+    config.callStats = callStats
+    this.reply('设置成功,已' + (callStats ? '开启' : '关闭'), true)
     await configSave()
   }
 
@@ -1542,7 +1548,7 @@ export class QQBotAdapter extends plugin {
   }
 
   async callStat() {
-    if (!callStats[this.e.self_id]) return false
+    if (!config.callStats || !callStats[this.e.self_id]) return false
     const arr = Object.entries(callStats[this.e.self_id]).sort((a, b) => b[1] - a[1])
     const msg = [getNowDate(), '数据可能不准确,请自行识别']
     for (let i = 0; i < 10; i++) {
@@ -1702,8 +1708,10 @@ async function getCallStats(id) {
   return {}
 }
 
+const msg_id_cache = {}
+
 async function setLogFnc(e) {
-  if (!e.logFnc) return
+  if (!config.callStats || !e.logFnc || msg_id_cache[e.message_id]) return
   if (!callStats[e.self_id]) callStats[e.self_id] = {}
   const stats = callStats[e.self_id]
   if (!stats[e.logFnc]) stats[e.logFnc] = 0
@@ -1713,6 +1721,9 @@ async function setLogFnc(e) {
     (new Date(time).getTime() - new Date().getTime()) / 1000
   )
   redis.set(`QQBotCallStats:${e.self_id}`, JSON.stringify(stats), { EX })
+  msg_id_cache[e.message_id] = setTimeout(() => {
+    delete msg_id_cache[e.message_id]
+  }, 60 * 5 * 1000)
 }
 
 // 每天零点清除DAU统计并保存到文件

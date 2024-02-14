@@ -26,7 +26,7 @@ TRSS-Yunzai QQBot 适配器 插件
           - key2
     ```
 7. `config/QQBot.yaml`中`saveDBFile: false`是否使用基于文件的数据库
-8. `#QQBot调用统计`: 查看什么功能调用最多,根据`e.reply()`发送的消息进行统计,每条消息仅统计一次 
+8. `#QQBot调用统计` 根据`e.reply()`发送的消息进行统计,每条消息仅统计一次,未做持久化处理,默认关闭,`#QQBot设置调用统计开启`
 
 ## 安装教程
 
