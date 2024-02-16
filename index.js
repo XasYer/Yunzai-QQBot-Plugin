@@ -41,6 +41,7 @@ const { config, configSave } = await makeConfig('QQBot', {
   callStats: false,
   markdown: {},
   customMD: {},
+  mdSuffix: {},
   bot: {
     sandbox: false,
     maxRetry: Infinity
@@ -348,6 +349,11 @@ const adapter = new class QQBotAdapter {
         params.push({ key: i, values: [template[keys.shift()]] })
       } else if (template[i]) {
         params.push({ key: i, values: [template[i]] })
+      }
+    }
+    if (config.mdSuffix?.[data.self_id]) {
+      for (const i of config.mdSuffix[data.self_id]) {
+        params.push(i)
       }
     }
     return {
