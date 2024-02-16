@@ -352,9 +352,7 @@ const adapter = new class QQBotAdapter {
       }
     }
     if (config.mdSuffix?.[data.self_id]) {
-      for (const i of config.mdSuffix[data.self_id]) {
-        params.push(i)
-      }
+      params.push(...config.mdSuffix[data.self_id])
     }
     return {
       type: 'markdown',
