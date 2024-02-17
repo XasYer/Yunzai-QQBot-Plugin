@@ -1198,10 +1198,10 @@ const adapter = new class QQBotAdapter {
         if (event.notice_type === 'group') {
           const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'groupIncreaseMsg.js')
           if (fs.existsSync(path)) {
-            import(`file://${path}`).then(i => i.default).then(i => {
+            import(`file://${path}`).then(i => i.default).then(async i => {
               let msg
               if (typeof i === 'function') {
-                msg = i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${event.user_id}`, data.self_id)
+                msg = await i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${event.user_id}`, data.self_id)
               } else {
                 msg = i
               }

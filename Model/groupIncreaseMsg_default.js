@@ -31,7 +31,7 @@ const msg = []
  * @param {string} self_id 机器人账号
  * @returns {Array} msg
  */
-export default function (group_id, user_id, self_id) {
+export default async function (group_id, user_id, self_id) {
     // 需要导出msg
     return msg
 }
