@@ -1197,7 +1197,7 @@ const adapter = new class QQBotAdapter {
             import(`file://${path}`).then(i => i.default).then(async i => {
               let msg
               if (typeof i === 'function') {
-                msg = await i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${event.user_id}`, data.self_id)
+                msg = await i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${event.user_id||event.operator_id}`, data.self_id)
               } else {
                 msg = i
               }
