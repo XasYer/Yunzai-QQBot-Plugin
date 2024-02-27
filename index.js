@@ -1,7 +1,7 @@
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
 import makeConfig from '../../lib/plugins/config.js'
-import fs from 'node:fs/promises'
+import fs from 'node:fs'
 import path, { join } from 'node:path'
 import QRCode from 'qrcode'
 import imageSize from 'image-size'
@@ -101,16 +101,16 @@ const adapter = new class QQBotAdapter {
     const pcmFile = path.join('temp', randomUUID())
 
     try {
-      await fs.writeFile(inputFile, await Bot.Buffer(file))
+      fs.writeFileSync(inputFile, await Bot.Buffer(file))
       await Bot.exec(`ffmpeg -i "${inputFile}" -f s16le -ar 48000 -ac 1 "${pcmFile}"`)
-      file = Buffer.from((await encodeSilk(await fs.readFile(pcmFile), 48000)).data)
+      file = Buffer.from((await encodeSilk(fs.readFileSync(pcmFile), 48000)).data)
     } catch (err) {
       logger.error(`silk 转码错误：${err}`)
     }
 
     for (const i of [inputFile, pcmFile]) {
       try {
-        await fs.unlink(i)
+        fs.unlinkSync(i)
       } catch (err) { }
     }
     return Bot.fileToUrl(file)
@@ -1327,6 +1327,12 @@ const adapter = new class QQBotAdapter {
 
 Bot.adapter.push(adapter)
 
+const setMap = {
+  '转换': 'toQQUin',
+  '按钮回调': 'toCallback',
+  '调用统计': 'callStats',
+}
+
 export class QQBotAdapter extends plugin {
   constructor() {
     super({
@@ -1350,18 +1356,8 @@ export class QQBotAdapter extends plugin {
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot设置转换\\s*(开启|关闭)$',
+          reg: `^#[Qq]+[Bb]ot设置(${Object.keys(setMap).join('|')})\\s*(开启|关闭)$`,
           fnc: 'Setting',
-          permission: config.permission
-        },
-        {
-          reg: '^#[Qq]+[Bb]ot设置按钮回调\\s*(开启|关闭)$',
-          fnc: 'btnCallback',
-          permission: config.permission
-        },
-        {
-          reg: '^#[Qq]+[Bb]ot设置调用统计\\s*(开启|关闭)$',
-          fnc: 'setCallStats',
           permission: config.permission
         },
         {
@@ -1421,23 +1417,11 @@ export class QQBotAdapter extends plugin {
   }
 
   async Setting() {
-    const toQQUin = !!this.e.msg.includes('开启')
-    config.toQQUin = toQQUin
-    this.reply('设置成功,已' + (toQQUin ? '开启' : '关闭'), true)
-    await configSave()
-  }
-
-  async btnCallback() {
-    const callback = !!this.e.msg.includes('开启')
-    config.toCallback = callback
-    this.reply('设置成功,已' + (callback ? '开启' : '关闭'), true)
-    await configSave()
-  }
-
-  async setCallStats() {
-    const callStats = !!this.e.msg.includes('开启')
-    config.callStats = callStats
-    this.reply('设置成功,已' + (callStats ? '开启' : '关闭'), true)
+    const reg = /^#[Qq]+[Bb]ot设置(.+)\s*(开启|关闭)$/
+    const regRet = reg.exec(this.e.msg)
+    const state = regRet[2] == '开启'
+    config[regRet[1]] = state
+    this.reply('设置成功,已' + (state ? '开启' : '关闭'), true)
     await configSave()
   }
 
