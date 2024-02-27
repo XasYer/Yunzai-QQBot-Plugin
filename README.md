@@ -36,6 +36,18 @@ TRSS-Yunzai QQBot 适配器 插件
               - value
           # ...
     ```
+10. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以button的模式`自动加入`按钮指定行数并独占一行`,当`超过`5排按钮时`不会添加`
+    ```yml
+    btnSuffix:
+      BotQQ:
+        position: 1 # 位置:第几行 1 - 5
+        values:
+          - text: test
+            callback: test
+          - text: test2
+            input: test2
+          # ... 最多10个
+    ```
 
 ## 安装教程
 

@@ -14,6 +14,7 @@ import Runtime from '../../lib/plugins/runtime.js'
 import Handler from '../../lib/plugins/handler.js'
 import puppeteer from '../../lib/puppeteer/puppeteer.js'
 import _ from 'lodash'
+import YAML from 'yaml'
 
 const userIdCache = {}
 const DAU = {}
@@ -29,7 +30,7 @@ setTimeout(async () => {
   })()
 }, 5000)
 
-const { config, configSave } = await makeConfig('QQBot', {
+let { config, configSave } = await makeConfig('QQBot', {
   tips: '',
   permission: 'master',
   toQRCode: true,
@@ -42,6 +43,7 @@ const { config, configSave } = await makeConfig('QQBot', {
   markdown: {},
   customMD: {},
   mdSuffix: {},
+  btnSuffix: {},
   bot: {
     sandbox: false,
     maxRetry: Infinity
@@ -344,7 +346,8 @@ const adapter = new class QQBotAdapter {
     const params = []
     const custom = config.customMD?.[data.self_id]
     const keys = Object.keys(template)
-    for (const i of custom?.keys || ['a', 'b']) {
+    const mdKeys = custom?.keys || ['a', 'b']
+    for (const i of mdKeys || ['a', 'b']) {
       if (custom && keys.length) {
         params.push({ key: i, values: [template[keys.shift()]] })
       } else if (template[i]) {
@@ -352,7 +355,14 @@ const adapter = new class QQBotAdapter {
       }
     }
     if (config.mdSuffix?.[data.self_id]) {
-      params.push(...config.mdSuffix[data.self_id])
+      for (const i of config.mdSuffix[data.self_id]) {
+        const index = params.findIndex(k => k.key == i.key)
+        if (index > -1) {
+          params[index].values[0] += i.values[0]
+        } else {
+          params.push(i)
+        }
+      }
     }
     return {
       type: 'markdown',
@@ -493,6 +503,15 @@ const adapter = new class QQBotAdapter {
     else if (content) template = { a: content }
 
     if (template.a) messages.push([this.makeMarkdownTemplate(data, template)])
+
+    if (button.length < 5 && config.btnSuffix[data.self_id]) {
+      let { position, values } = config.btnSuffix[data.self_id]
+      position = +position - 1
+      if (position > button.length) {
+        position = button.length
+      }
+      button.splice(position, 0, ...this.makeButtons(data, [values]))
+    }
 
     if (button.length) {
       for (const i of messages) {
@@ -1373,6 +1392,11 @@ export class QQBotAdapter extends plugin {
         {
           reg: '^#[Qq]+[Bb]ot绑定用户.+$',
           fnc: 'BindUser'
+        },
+        {
+          reg: '^#[Qq]+[Bb]ot刷新co?n?fi?g$',
+          fnc: 'refConfig',
+          permission: config.permission
         }
       ]
     })
@@ -1384,6 +1408,10 @@ export class QQBotAdapter extends plugin {
     if (fs.existsSync(dauPath)) {
       this.mergeDAU(dauPath)
     }
+  }
+
+  refConfig() {
+    config = YAML.parse(fs.readFileSync('config/QQBot.yaml', 'utf-8'))
   }
 
   List() {
