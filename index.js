@@ -1448,7 +1448,7 @@ export class QQBotAdapter extends plugin {
     const reg = /^#[Qq]+[Bb]ot设置(.+)\s*(开启|关闭)$/
     const regRet = reg.exec(this.e.msg)
     const state = regRet[2] == '开启'
-    config[regRet[1]] = state
+    config[setMap[regRet[1]]] = state
     this.reply('设置成功,已' + (state ? '开启' : '关闭'), true)
     await configSave()
   }
