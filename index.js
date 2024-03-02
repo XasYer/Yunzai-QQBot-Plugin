@@ -1484,8 +1484,8 @@ export class QQBotAdapter extends plugin {
         `下行消息量: ${yesterdayDau.send_count}`,
         `上行消息人数: ${yesterdayDau.user_count}`,
         `上行消息群数: ${yesterdayDau.group_count}`,
-        `新增群数: ${dau.group_increase_count}`,
-        `减少群数: ${dau.group_decrease_count}`,
+        `新增群数: ${yesterdayDau.group_increase_count}`,
+        `减少群数: ${yesterdayDau.group_decrease_count}`,
         ''
       ])
     } catch (error) { }
