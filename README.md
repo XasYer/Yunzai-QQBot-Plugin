@@ -48,6 +48,7 @@ TRSS-Yunzai QQBot 适配器 插件
             input: test2
           # ... 最多10个
     ```
+11. `#QQBot用户统计`: 对比昨日的用户数据,默认关闭,`#QQBot设置用户统计开启`
 
 ## 安装教程
 

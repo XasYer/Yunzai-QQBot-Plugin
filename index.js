@@ -2,7 +2,7 @@ logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
 import makeConfig from '../../lib/plugins/config.js'
 import fs from 'node:fs'
-import path, { join } from 'node:path'
+import { join } from 'node:path'
 import QRCode from 'qrcode'
 import imageSize from 'image-size'
 import { randomUUID } from 'node:crypto'
@@ -14,11 +14,13 @@ import Runtime from '../../lib/plugins/runtime.js'
 import Handler from '../../lib/plugins/handler.js'
 import puppeteer from '../../lib/puppeteer/puppeteer.js'
 import _ from 'lodash'
+import { Level } from 'level'
 import YAML from 'yaml'
 
 const userIdCache = {}
 const DAU = {}
 const callStats = {}
+const userStats = {}
 let findUser_id
 setTimeout(async () => {
   findUser_id = await (async () => {
@@ -40,6 +42,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   toImg: true,
   saveDBFile: false,
   callStats: false,
+  userStats: false,
   markdown: {},
   customMD: {},
   mdSuffix: {},
@@ -51,8 +54,8 @@ let { config, configSave } = await makeConfig('QQBot', {
   token: []
 }, {
   tips: [
-    '欢迎使用 TRSS-Yunzai QQBot Plugin ! 作者：时雨🌌星空',
-    '参考：https://github.com/TimeRainStarSky/Yunzai-QQBot-Plugin'
+    '欢迎使用 TRSS-Yunzai QQBot Plugin ! 作者：时雨🌌星空 & 小叶',
+    '参考：https://github.com/xiaoye12123/Yunzai-QQBot-Plugin'
   ]
 })
 
@@ -99,8 +102,8 @@ const adapter = new class QQBotAdapter {
       }
     }
 
-    const inputFile = path.join('temp', randomUUID())
-    const pcmFile = path.join('temp', randomUUID())
+    const inputFile = join('temp', randomUUID())
+    const pcmFile = join('temp', randomUUID())
 
     try {
       fs.writeFileSync(inputFile, await Bot.Buffer(file))
@@ -1073,6 +1076,7 @@ const adapter = new class QQBotAdapter {
 
     data.bot.stat.recv_msg_cnt++
     setDAU(data, 'msg_count')
+    setUserStats(data.self_id, data.user_id)
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
@@ -1334,6 +1338,7 @@ const adapter = new class QQBotAdapter {
     Bot.em(`connect.${id}`, { self_id: id })
     DAU[id] = await getDAU(id)
     callStats[id] = await getCallStats(id)
+    await initUserStats(id)
     return true
   }
 
@@ -1350,9 +1355,12 @@ const adapter = new class QQBotAdapter {
 Bot.adapter.push(adapter)
 
 const setMap = {
-  转换: 'toQQUin',
-  按钮回调: 'toCallback',
-  调用统计: 'callStats'
+  '二维码': 'toQRCode',
+  '按钮回调': 'toCallback',
+  '转换': 'toQQUin',
+  '转图片': 'toImg',
+  '调用统计': 'callStats',
+  '用户统计': 'userStats',
 }
 
 export class QQBotAdapter extends plugin {
@@ -1390,6 +1398,11 @@ export class QQBotAdapter extends plugin {
         {
           reg: '^#[Qq]+[Bb]ot调用统计$',
           fnc: 'callStat',
+          permission: config.permission
+        },
+        {
+          reg: '^#[Qq]+[Bb]ot用户统计$',
+          fnc: 'userStat',
           permission: config.permission
         },
         {
@@ -1575,13 +1588,25 @@ export class QQBotAdapter extends plugin {
   async callStat() {
     if (!config.callStats || !callStats[this.e.self_id]) return false
     const arr = Object.entries(callStats[this.e.self_id]).sort((a, b) => b[1] - a[1])
-    const msg = [getNowDate(), '数据可能不准确,请自行识别']
+    const msg = [getDate(), '数据可能不准确,请自行识别']
     for (let i = 0; i < 10; i++) {
       if (!arr[i]) break
       const s = arr[i]
       msg.push(`${i + 1}: ${s[0].replace(/[^\[].*-[pP]lugin\/?/, '')}\t\t${s[1]}次`)
     }
     this.reply(msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), true)
+  }
+
+  async userStat() {
+    if (!config.userStats || !userStats[this.e.self_id]) return false
+    const info = userStats[this.e.self_id]
+    const stats = info[info.today].stats
+    this.reply([
+      info.today,
+      `新增用户: ${stats.increase_user_count}`,
+      `减少用户: ${stats.decrease_user_count}`,
+      `相同用户: ${stats.invariant_user_count}`,
+    ].join('\n'))
   }
 
   mergeDAU(dauPath) {
@@ -1668,7 +1693,7 @@ export class QQBotAdapter extends plugin {
 logger.info(logger.green('- QQBot 适配器插件 加载完成'))
 
 async function getDAU(uin) {
-  const time = getNowDate()
+  const time = getDate()
   const msg_count = (await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
   const send_count = (await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
   let data = await redis.get(`QQBotDAU:${uin}`)
@@ -1761,8 +1786,9 @@ async function setDAU(data, type) {
   }
 }
 
-function getNowDate() {
+function getDate(d = 0) {
   const date = new Date()
+  if (d != 0) date.setDate(date.getDate() + d)
   const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
   const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
   return `${year}-${month}-${day}`
@@ -1795,7 +1821,7 @@ async function setLogFnc(e) {
 // 每天零点清除DAU统计并保存到文件
 schedule.scheduleJob('0 0 0 * * ?', () => {
   const yesMonth = moment().subtract(1, 'd').format('YYYY-MM')
-  const time = getNowDate()
+  const time = getDate()
   const path = join(process.cwd(), 'data', 'QQBotDAU')
   if (!fs.existsSync(path)) fs.mkdirSync(path)
   for (const key in DAU) {
@@ -1819,6 +1845,7 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
       let file = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : []
       file.push(data)
       fs.writeFile(filePath, JSON.stringify(file, '', '\t'), 'utf-8', () => { })
+      initUserStats(key)
     } catch (error) {
       logger.error('清除DAU数据出错,key: ' + key, error)
     }
@@ -1827,6 +1854,72 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
     callStats[key] = {}
   }
 })
+// 相较于昨日
+// 新增用户数
+// 减少用户数
+// 相同用户数
+
+// 新增: 昨日没发言的用户
+// 减少: 昨日用户数-相同用户数
+// 相同: 昨日发言了的用户
+// 来一个人就对比昨天有没有发言
+async function setUserStats(self_id, user_id) {
+  const user = userStats[self_id]
+  const today = user[user.today]
+  // 今天刚发言
+  if (!today[user_id]) {
+    // 昨天发言了
+    if (user[user.yesterday][user_id]) {
+      today.stats.invariant_user_count++
+      today.stats.decrease_user_count--
+      if (today.stats.decrease_user_count < 0) {
+        today.stats.decrease_user_count = 0
+      }
+    }
+    // 昨天没发言
+    else {
+      today.stats.increase_user_count++
+    }
+    today[user_id] = 0
+  }
+  today[user_id]++
+  await user.db.put(user.today, { ...user, db: undefined })
+}
+
+async function initUserStats(self_id) {
+  const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'db', self_id)
+  const db = new Level(path, { valueEncoding: "json" })
+  await db.open()
+  const user = {
+    today: getDate(),
+    yesterday: getDate(-1),
+    db
+  }
+  for await (const [key, value] of db.iterator()) {
+    try {
+      // 删除一天前的数据
+      if (key != user.today || key != user.yesterday) {
+        await db.del(key)
+        continue
+      }
+      user[key] = value
+    } catch (error) { }
+  }
+  if (!user[user.today]) {
+    user[user.today] = {}
+  }
+  if (!user[user.yesterday]) {
+    user[user.yesterday] = {}
+  }
+  if (!user[user.today].stats) {
+    user[user.today].stats = {
+      increase_user_count: 0, // 增加用户数
+      decrease_user_count: Object.keys(user[user.yesterday]).length, // 减少用户数
+      invariant_user_count: 0,// 相同用户数
+    }
+  }
+  userStats[self_id] = user
+}
 
 // 硬核
 const numToChinese = {
