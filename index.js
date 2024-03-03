@@ -1371,6 +1371,11 @@ export class QQBotAdapter extends plugin {
       event: 'message',
       rule: [
         {
+          reg: '^#[Qq]+[Bb]ot(帮助|help)$',
+          fnc: 'help',
+          permission: config.permission
+        },
+        {
           reg: '^#[Qq]+[Bb]ot账号$',
           fnc: 'List',
           permission: config.permission
@@ -1424,6 +1429,24 @@ export class QQBotAdapter extends plugin {
     if (fs.existsSync(dauPath)) {
       this.mergeDAU(dauPath)
     }
+  }
+
+  help() {
+    this.reply([' ', segment.button(
+      [
+        { text: 'dau', callback: '#QQBotdau' },
+        { text: 'daupro', callback: '#QQBotdaupro' },
+        { text: '调用统计', callback: '#QQBot调用统计' },
+        { text: '用户统计', callback: '#QQBot用户统计' },
+      ],
+      [
+        { text: `${config.toCallback ? '关闭' : '开启'}按钮回调`, callback: `#QQBot设置按钮回调${config.toCallback ? '关闭' : '开启'}` },
+        { text: `${config.callStats ? '关闭' : '开启'}调用统计`, callback: `#QQBot设置调用统计${config.callStats ? '关闭' : '开启'}` },
+      ],
+      [
+        { text: `${config.userStats ? '关闭' : '开启'}用户统计`, callback: `#QQBot设置用户统计${config.userStats ? '关闭' : '开启'}` },
+      ]
+    )])
   }
 
   refConfig() {
@@ -1579,10 +1602,10 @@ export class QQBotAdapter extends plugin {
         _res_Path: `${process.cwd()}/plugins/genshin/resources/`
       }
       let img = await puppeteer.screenshot('DAU', renderdata)
-      if (img) this.reply(img)
+      if (img) this.reply([img, toButton()])
       return true
     }
-    this.reply(msg.join('\n'), true)
+    this.reply([msg.join('\n'), toButton()], true)
   }
 
   async callStat() {
@@ -1594,19 +1617,19 @@ export class QQBotAdapter extends plugin {
       const s = arr[i]
       msg.push(`${i + 1}: ${s[0].replace(/[^\[].*-[pP]lugin\/?/, '')}\t\t${s[1]}次`)
     }
-    this.reply(msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), true)
+    this.reply([msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), toButton()], true)
   }
 
   async userStat() {
     if (!config.userStats || !userStats[this.e.self_id]) return false
     const info = userStats[this.e.self_id]
     const stats = info[info.today].stats
-    this.reply([
+    this.reply([[
       info.today,
       `新增用户: ${stats.increase_user_count}`,
       `减少用户: ${stats.decrease_user_count}`,
       `相同用户: ${stats.invariant_user_count}`,
-    ].join('\n'))
+    ].join('\n'), toButton()])
   }
 
   mergeDAU(dauPath) {
@@ -1691,6 +1714,16 @@ export class QQBotAdapter extends plugin {
 }
 
 logger.info(logger.green('- QQBot 适配器插件 加载完成'))
+
+function toButton() {
+  return segment.button([
+    { text: 'dau', callback: '#QQBotdau' },
+    { text: 'daupro', callback: '#QQBotdaupro' },
+  ], [
+    { text: '调用统计', callback: '#QQBot调用统计' },
+    { text: '用户统计', callback: '#QQBot用户统计' },
+  ])
+}
 
 async function getDAU(uin) {
   const time = getDate()
