@@ -1897,6 +1897,7 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
 // 相同: 昨日发言了的用户
 // 来一个人就对比昨天有没有发言
 async function setUserStats(self_id, user_id) {
+  if (!config.userStats) return
   const user = userStats[self_id]
   const today = user[user.today]
   // 今天刚发言
