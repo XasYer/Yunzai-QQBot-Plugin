@@ -16,7 +16,7 @@ TRSS-Yunzai QQBot 适配器 插件
 2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
 3. `#QQBotDAU` and `#QQBotDAUpro`
 5. `QQBot-Plugin/Model`中`自定义入群发送主动消息`
-6. `config/QQBot.yaml`中使用以下自定义模版,配合`e.toQQBotMD = true`将特定消息`转换`成md,亦可通过`e.toQQBotMD = false`将特定消息`不转换`成md
+6. `config/QQBot.yaml`中使用以下自定义模版,如果设置了全局md会优先使用自定义模版,配合`e.toQQBotMD = true`将特定消息`转换`成md,亦可在`全局md模式下`通过`e.toQQBotMD = false`将特定消息`不转换`成md
     ```yml
     customMD:
       BotQQ:
