@@ -1626,6 +1626,7 @@ export class QQBotAdapter extends plugin {
     const stats = info[info.today].stats
     this.reply([[
       info.today,
+      '相较于昨日',
       `新增用户: ${stats.increase_user_count}`,
       `减少用户: ${stats.decrease_user_count}`,
       `相同用户: ${stats.invariant_user_count}`,
@@ -1895,7 +1896,6 @@ schedule.scheduleJob('0 0 0 * * ?', () => {
 // 新增: 昨日没发言的用户
 // 减少: 昨日用户数-相同用户数
 // 相同: 昨日发言了的用户
-// 来一个人就对比昨天有没有发言
 async function setUserStats(self_id, user_id) {
   if (!config.userStats) return
   const user = userStats[self_id]
@@ -1932,7 +1932,7 @@ async function initUserStats(self_id) {
   for await (const [key, value] of db.iterator()) {
     try {
       // 删除一天前的数据
-      if (key != user.today || key != user.yesterday) {
+      if (key != user.today && key != user.yesterday) {
         await db.del(key)
         continue
       }
