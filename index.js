@@ -21,6 +21,7 @@ const userIdCache = {}
 const DAU = {}
 const callStats = {}
 const userStats = {}
+const DBCache = {}
 let findUser_id
 setTimeout(async () => {
   findUser_id = await (async () => {
@@ -47,6 +48,18 @@ let { config, configSave } = await makeConfig('QQBot', {
   customMD: {},
   mdSuffix: {},
   btnSuffix: {},
+  // dau: {
+  //   enable: true,
+  //   user_count: true,  // 上行消息人数
+  //   group_count: true, // 上行消息群数
+  //   msg_count: true,      // 上行消息量
+  //   send_count: true,     // 下行消息量
+  //   group_increase_count: true, // 新增群数量
+  //   group_decrease_count: true, // 减少群数量
+  //   increase_user_count: false, // 增加用户数
+  //   decrease_user_count: false, // 减少用户数
+  //   invariant_user_count: false,// 相同用户数
+  // },
   bot: {
     sandbox: false,
     maxRetry: Infinity
@@ -1917,26 +1930,24 @@ async function setUserStats(self_id, user_id) {
     today[user_id] = 0
   }
   today[user_id]++
-  await user.db.put(user.today, { ...user, db: undefined })
+  const db = await getDB(self_id)
+  await db.put(user.today, user)
 }
 
 async function initUserStats(self_id) {
-  const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'db', self_id)
-  const db = new Level(path, { valueEncoding: "json" })
-  await db.open()
+  const db = await getDB(self_id)
   const user = {
     today: getDate(),
-    yesterday: getDate(-1),
-    db
+    yesterday: getDate(-1)
   }
   for await (const [key, value] of db.iterator()) {
     try {
       // 删除一天前的数据
-      if (key != user.today && key != user.yesterday) {
+      if (![user.yesterday, user.today].includes(key)) {
         await db.del(key)
         continue
       }
-      user[key] = value
+      user[key] = value[key]
     } catch (error) { }
   }
   if (!user[user.today]) {
@@ -1953,6 +1964,16 @@ async function initUserStats(self_id) {
     }
   }
   userStats[self_id] = user
+}
+
+// TODO 存储细分 以及类似redis过期时间
+async function getDB(self_id) {
+  if (DBCache[self_id]) return DBCache[self_id]
+  const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'db', self_id)
+  const db = new Level(path, { valueEncoding: "json" })
+  await db.open()
+  DBCache[self_id] = db
+  return db
 }
 
 // 硬核
