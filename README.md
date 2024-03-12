@@ -44,6 +44,9 @@ TRSS-Yunzai QQBot 适配器 插件
         values:
           - text: test
             callback: test
+            show: # 达成什么条件才会显示
+              type: random    # 目前仅支持 random
+              data: 50        # 0-100
           - text: test2
             input: test2
           # ... 最多10个

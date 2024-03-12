@@ -48,6 +48,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   customMD: {},
   mdSuffix: {},
   btnSuffix: {},
+  sep: '',
   // dau: {
   //   enable: true,
   //   user_count: true,  // 上行消息人数
@@ -526,7 +527,22 @@ const adapter = new class QQBotAdapter {
       if (position > button.length) {
         position = button.length
       }
-      button.splice(position, 0, ...this.makeButtons(data, [values]))
+      const btn = values.filter(i => {
+        if (i.show) {
+          switch (i.show.type) {
+            case 'random':
+              const random = _.random(1, 100)
+              if (i.show.data <= random) {
+                return false
+              }
+              break
+            default:
+              break
+          }
+        }
+        return true
+      })
+      button.splice(position, 0, ...this.makeButtons(data, [btn]))
     }
 
     if (button.length) {
