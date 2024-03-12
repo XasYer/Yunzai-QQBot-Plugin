@@ -1,21 +1,21 @@
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
-import makeConfig from '../../lib/plugins/config.js'
+import _ from 'lodash'
+import YAML from 'yaml'
 import fs from 'node:fs'
-import { join } from 'node:path'
 import QRCode from 'qrcode'
-import imageSize from 'image-size'
-import { randomUUID } from 'node:crypto'
-import { encode as encodeSilk } from 'silk-wasm'
-import { Bot as QQBot } from 'qq-group-bot'
 import moment from 'moment'
+import { Level } from 'level'
+import { join } from 'node:path'
+import imageSize from 'image-size'
 import schedule from 'node-schedule'
+import { randomUUID } from 'node:crypto'
+import { Bot as QQBot } from 'qq-group-bot'
+import { encode as encodeSilk } from 'silk-wasm'
 import Runtime from '../../lib/plugins/runtime.js'
 import Handler from '../../lib/plugins/handler.js'
+import makeConfig from '../../lib/plugins/config.js'
 import puppeteer from '../../lib/puppeteer/puppeteer.js'
-import _ from 'lodash'
-import { Level } from 'level'
-import YAML from 'yaml'
 
 const userIdCache = {}
 const DAU = {}
@@ -83,8 +83,7 @@ const adapter = new class QQBotAdapter {
     if (typeof config.toQRCode == 'boolean') this.toQRCodeRegExp = config.toQRCode ? /https?:\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?/g : false
     else this.toQRCodeRegExp = new RegExp(config.toQRCode, 'g')
 
-    this.sep = ':'
-    if (process.platform == 'win32') this.sep = config.sep || ''
+    this.sep = config.sep || ((process.platform == 'win32') && '') || ':'
     this.bind_user = {}
   }
 
