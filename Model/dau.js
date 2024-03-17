@@ -31,7 +31,7 @@ const _path = process.cwd()
 
 class Dau {
   async stat (uin, dau, pro) {
-    let msg = [dau.time, ...this.toDauMsg(dau), '']
+    let msg = [dau.time, ...this.toDauMsg(dau, 6), '']
 
     const path = join(_path, 'data', 'QQBotDAU', uin)
     const today = moment().format('YYYY-MM-DD')
@@ -40,7 +40,7 @@ class Dau {
     try {
       let yesterdayDau = JSON.parse(fs.readFileSync(join(path, `${yearMonth}.json`), 'utf8'))
       yesterdayDau = _.find(yesterdayDau, v => moment(v.time).isSame(moment(today).subtract(1, 'd')))
-      msg.push(...[yesterdayDau.time, ...this.toDauMsg(yesterdayDau), ''])
+      msg.push(...[yesterdayDau.time, ...this.toDauMsg(yesterdayDau, 6), ''])
     } catch (error) { }
 
     // 最近30天平均

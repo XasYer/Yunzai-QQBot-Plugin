@@ -1517,7 +1517,7 @@ export class QQBotAdapter extends plugin {
     const dau = DAU[uin]
     if (!dau) return false
 
-    const data = Dau.stat(uin, dau, pro)
+    const data = await Dau.stat(uin, dau, pro)
     if (!data) return
     this.reply([data, toButton(this.e.user_id)], true)
   }
@@ -1652,7 +1652,7 @@ async function getDAU (uin) {
  * @param {'send_count'|'msg_count'|'group_increase_count'|'group_decrease_count'} type
  */
 async function setDAU (data, type) {
-  let dau = Dau.setDau(data, type, DAU[data.self_id])
+  let dau = await Dau.setDau(data, type, DAU[data.self_id])
   DAU[data.self_id] = dau
 }
 
