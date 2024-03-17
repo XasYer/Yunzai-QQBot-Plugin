@@ -72,7 +72,7 @@ class Dau {
 
       if (_.isEmpty(daus)) return false
       let data = _.fromPairs(daus.map(v => [v.replace('.json', ''), JSON.parse(fs.readFileSync(`${path}/${v}`))]))
-      data = this.monthlyDau(daus, path)
+      data = this.monthlyDau(data)
 
       totalDAU.days = days
       let renderdata = {
@@ -104,7 +104,7 @@ class Dau {
     const convertChart = (type, day, prefix = '') => {
       let chartData = { time: day.time }
       chartData[`${prefix}name`] = dauAttr[`${type}_count`]
-      chartData[`${prefix}name`] = dauAttr[`${type}_count`]
+      chartData[`${prefix}count`] = day[`${type}_count`]
       return chartData
     }
 
