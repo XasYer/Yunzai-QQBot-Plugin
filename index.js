@@ -1641,10 +1641,10 @@ function toButton (user_id) {
 }
 
 async function getDAU (uin) {
-  const data = JSON.parse(await redis.get(`QQBotDAU:${uin}`))
+  const data = (await redis.get(`QQBotDAU:${uin}`)) ? JSON.parse(await redis.get(`QQBotDAU:${uin}`)) : {}
   data.time = getDate()
-  data.msg_count = Number(await redis.get(`QQBotDAU:msg_count:${uin}`))
-  data.send_count = Number(await redis.get(`QQBotDAU:send_count:${uin}`))
+  data.msg_count = Number(await redis.get(`QQBotDAU:msg_count:${uin}`)) || 0
+  data.send_count = Number(await redis.get(`QQBotDAU:send_count:${uin}`)) || 0
   return Dau.getDau(data)
 }
 
