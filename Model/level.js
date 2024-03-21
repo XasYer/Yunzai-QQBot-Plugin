@@ -18,6 +18,7 @@ export default class level {
                 // 清除一下旧数据
                 if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
                     await this.db.del(key);
+                    await this.set(`userStats:${key}`, value, 2)
                 }
             } catch (error) { }
         }
