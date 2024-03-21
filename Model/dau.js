@@ -16,7 +16,7 @@ const dauAttr = {
   group_cache: '群组缓存',
   time: '时间'
 }
-// 硬核
+
 const numToChinese = {
   /* eslint-disable object-property-newline */
   1: '一', 2: '二', 3: '三', 4: '四', 5: '五',
@@ -30,7 +30,7 @@ const numToChinese = {
 const _path = process.cwd()
 
 class Dau {
-  async stat (uin, dau, pro) {
+  async stat(uin, dau, pro) {
     let msg = [dau.time, ...this.toDauMsg(dau, 6), '']
 
     const path = join(_path, 'data', 'QQBotDAU', uin)
@@ -100,7 +100,7 @@ class Dau {
    * @param {object} dat
    * @returns
    */
-  monthlyDau (data) {
+  monthlyDau(data) {
     const convertChart = (type, day, prefix = '') => {
       let chartData = { time: day.time }
       chartData[`${prefix}name`] = dauAttr[`${type}_count`]
@@ -121,7 +121,7 @@ class Dau {
     return data
   }
 
-  toDauMsg (dau, num = 0) {
+  toDauMsg(dau, num = 0) {
     const msg = []
     _.each(dauAttr, (v, k) => {
       msg.push(`${v}：${dau[k]}`)
@@ -129,7 +129,7 @@ class Dau {
     return num ? _.take(msg, num) : msg
   }
 
-  getDau (data) {
+  getDau(data) {
     _.keys(dauAttr).forEach(v => {
       if (!data[v]) {
         if (['user_cache', 'group_cache'].includes(v)) data[v] = {}
@@ -139,34 +139,34 @@ class Dau {
     return data
   }
 
-  async setDau (data, type, dau) {
+  async setDau(data, type, dau, db) {
     const uin = data.self_id
     const key = `${type}:${uin}`
     switch (type) {
       case 'send_count':
         dau.send_count++
-        this.setRedis(`DAU:${key}`, dau.send_count)
+        this.setDB(`DAU:${key}`, dau.send_count, db)
         break
       case 'msg_count':
         dau.msg_count++
-        this.setRedis(`DAU:${key}`, dau.msg_count)
+        this.setDB(`DAU:${key}`, dau.msg_count, db)
         _.each(['group', 'user'], v => {
           let id = data[`${v}_id`]
           if (id && !dau[`${v}_cache`][id]) {
             dau[`${v}_cache`][id] = 1
             dau[`${v}_count`]++
-            this.setRedis(`DAU:${uin}`, dau)
+            this.setDB(`DAU:${uin}`, dau, db)
           }
         })
         break
       case 'group_increase_count':
       case 'group_decrease_count':
-        let list = JSON.parse(await redis.get(`QQBot:${key}`)) || {}
+        let list = await db.get(`QQBot:${key}`) || {}
         if (!list[data.group_id]) {
           dau[type]++
-          this.setRedis(`DAU:${uin}`, dau)
+          this.setDB(`DAU:${uin}`, dau, db)
           list[data.group_id] = 1
-          this.setRedis(`:${key}`, list)
+          this.setDB(`:${key}`, list, db)
         }
         break
     }
@@ -174,14 +174,12 @@ class Dau {
   }
 
   /**
-   * 计算过期时间存入redis
+   * 计算过期时间存入level
    * @param {string} key
    * @param {*} data
    */
-  setRedis (key, data) {
-    const time = moment().add(1, 'd').format('YYYY-MM-DD 00:00:00')
-    const EX = moment(time).diff(moment(), 's')
-    redis.set(`QQBot${key}`, JSON.stringify(data), { EX })
+  setDB(key, data, db) {
+    db.set(`QQBot${key}`, data, 1)
   }
 }
 
