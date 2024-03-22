@@ -24,6 +24,7 @@ TRSS-Yunzai QQBot 适配器 插件
         keys: 
           - key1 # 对应的模版key名字
           - key2
+          # ... 最多10个
     ```
 7. `config/QQBot.yaml`中`saveDBFile: false`是否使用基于文件的数据库
 8. `#QQBot调用统计` 根据`e.reply()`发送的消息进行统计,每条消息仅统计一次,未做持久化处理,默认关闭,`#QQBot设置调用统计开启`
@@ -31,9 +32,9 @@ TRSS-Yunzai QQBot 适配器 插件
     ```yml
     mdSuffix:
       BotQQ:
-          - key: key
+          - key: key1
             values:
-              - value
+              - value1 # ^value1则加在key1的最前面,默认加在最后
           # ...
     ```
 10. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以button的模式`自动加入`按钮指定行数并独占一行`,当`超过`5排按钮时`不会添加`
@@ -81,15 +82,28 @@ TRSS-Yunzai QQBot 适配器 插件
 
 高阶能力 → 消息模板 → 添加 Markdown 模板
 
-模板名称：图文消息  
-使用场景：发送图文混排消息  
-Markdown 源码：`{{.a}}{{.b}}`  
+模板名称：多图文消息  
+使用场景：发送连续图文消息  
+Markdown 源码：
+
+```
+{{.a}}{{.b}}{{.c}}{{.d}}{{.e}}{{.f}}{{.g}}{{.h}}{{.i}}{{.j}}
+```
+
 
 配置模板参数
 | 模板参数 | 参数示例 |
 | - | - |
-| a | 开头文字![图片] |
-| b | (https://qqminiapp.cdn-go.cn/open-platform/11d80dc9/img/robot.b167c62c.png)结束文字 |
+| a | 0 |
+| b | 1 |
+| c | 2 |
+| d | 3 |
+| e | 4 |
+| f | 5 |
+| g | 6 |
+| h | 7 |
+| i | 8 |
+| j | 9 |
 
 保存 → 提交审核 → 审核完成后，输入 `#QQBotMD机器人QQ号:模板ID`
 

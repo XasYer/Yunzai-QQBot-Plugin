@@ -45,7 +45,9 @@ let { config, configSave } = await makeConfig('QQBot', {
   saveDBFile: false,
   callStats: false,
   userStats: false,
-  markdown: {},
+  markdown: {
+    template: "abcdefghij",
+  },
   customMD: {},
   mdSuffix: {},
   btnSuffix: {},
@@ -144,7 +146,7 @@ const adapter = new class QQBotAdapter {
     if (match) {
       for (const url of match) {
         button.push(...this.makeButtons(data, [[{ text: url, link: url }]]))
-        const img = await this.makeMarkdownImage(await this.makeQRCode(url))
+        const img = await this.makeMarkdownImage(await this.makeQRCode(url), "二维码")
         text = text.replace(url, `${img.des}${img.url}`)
       }
     }
@@ -165,7 +167,7 @@ const adapter = new class QQBotAdapter {
     }
   }
 
-  async makeMarkdownImage(file) {
+  async makeMarkdownImage(file, summary = "图片") {
     const image = await this.makeBotImage(file) || {
       url: await Bot.fileToUrl(file)
     }
@@ -181,7 +183,7 @@ const adapter = new class QQBotAdapter {
     }
 
     return {
-      des: `![图片 #${image.width || 0}px #${image.height || 0}px]`,
+      des: `![${summary} #${image.width || 0}px #${image.height || 0}px]`,
       url: `(${image.url})`
     }
   }
@@ -270,10 +272,8 @@ const adapter = new class QQBotAdapter {
   }
 
   async makeRawMarkdownMsg(data, msg) {
-    const messages = []
-    let content = ''
-    const button = []
-    let reply
+    const messages = [], button = []
+    let content = "", reply
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i == 'object') { i = { ...i } } else { i = { type: 'text', text: i } }
@@ -293,22 +293,28 @@ const adapter = new class QQBotAdapter {
           content += await this.makeRawMarkdownText(data, `文件：${i.file}`, button)
           break
         case 'at':
-          if (i.qq == 'all') { content += '@everyone' } else { content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, '')}>` }
+          if (i.qq == 'all') { content += '@everyone' } else { content += `<@${i.qq?.replace?.(`${data.self_id}${this.sep}`, '')}>` }
           break
         case 'text':
           content += await this.makeRawMarkdownText(data, i.text, button)
           break
         case 'image': {
-          const { des, url } = await this.makeMarkdownImage(i.file)
+          const { des, url } = await this.makeMarkdownImage(i.file, i.summary)
           content += `${des}${url}`
           break
         } case 'markdown':
-          content += i.data
+          if (typeof i.data == "object")
+            messages.push([{ type: "markdown", ...i.data }])
+          else
+            content += i.data
           break
         case 'button':
           button.push(...this.makeButtons(data, i.data))
           break
         case 'face':
+        case "ark":
+        case "embed":
+          messages.push([i])
           break
         case 'reply':
           reply = i
@@ -359,42 +365,47 @@ const adapter = new class QQBotAdapter {
     return text.replace(/\n/g, '\r').replace(/@/g, '@​')
   }
 
-  makeMarkdownTemplate(data, template) {
-    const params = []
+  makeMarkdownTemplate(data, templates) {
+    const msgs = []
     const custom = config.customMD?.[data.self_id]
-    const keys = Object.keys(template)
-    const mdKeys = custom?.keys || ['a', 'b']
-    for (const i of mdKeys || ['a', 'b']) {
-      if (custom && keys.length) {
-        params.push({ key: i, values: [template[keys.shift()]] })
-      } else if (template[i]) {
-        params.push({ key: i, values: [template[i]] })
-      }
-    }
-    if (config.mdSuffix?.[data.self_id]) {
-      for (const i of config.mdSuffix[data.self_id]) {
-        const index = params.findIndex(k => k.key == i.key)
-        if (index > -1) {
-          params[index].values[0] += i.values[0]
-        } else {
-          params.push(i)
+    const keys = custom?.keys.slice() || config.markdown.template.split('')
+    for (const template of templates) {
+      if (!template.length) continue
+      const params = []
+      for (const i of template)
+        params.push({
+          key: keys.shift(),
+          values: [i],
+        })
+
+      if (config.mdSuffix?.[data.self_id]) {
+        for (const i of config.mdSuffix[data.self_id]) {
+          const index = params.findIndex(k => k.key == i.key)
+          if (index > -1) {
+            if (i.values[0].startsWith('^')) {
+              params[index].values[0] = i.values[0].replace(/^\^/, '') + params[index].values[0]
+            } else {
+              params[index].values[0] += i.values[0]
+            }
+          } else {
+            params.push(i)
+          }
         }
       }
+
+      msgs.push([{
+        type: "markdown",
+        custom_template_id: custom?.custom_template_id || config.markdown[data.self_id],
+        params,
+      }])
     }
-    return {
-      type: 'markdown',
-      custom_template_id: custom?.custom_template_id || config.markdown[data.self_id],
-      params
-    }
+
+    return msgs
   }
 
   async makeMarkdownMsg(data, msg) {
-    const messages = []
-    let content = ''
-    let button = []
-    let template = {}
-    let reply
-    let raw = []
+    const messages = [], button = [], templates = [[]]
+    let content = "", reply, template = templates[0], raw = []
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i == 'object') i = { ...i }
@@ -422,7 +433,7 @@ const adapter = new class QQBotAdapter {
             if (config.toQQUin && userIdCache[i.qq]) {
               i.qq = userIdCache[i.qq]
             }
-            content += `<@${i.qq.replace(`${data.self_id}${this.sep}`, '')}>`
+            content += `<@${i.qq?.replace?.(`${data.self_id}${this.sep}`, '')}>`
           }
           break
         case 'text':
@@ -462,8 +473,6 @@ const adapter = new class QQBotAdapter {
               reply: (msg) => {
                 i = msg
               },
-              // 兼容一下
-              bot: {},
               user_id: data.bot.uin,
               nickname: data.bot.nickname
             }
@@ -476,29 +485,29 @@ const adapter = new class QQBotAdapter {
             continue
           }
         case 'image': {
-          const { des, url } = await this.makeMarkdownImage(i.file)
-
-          if (template.b) {
-            template.b += content
-            messages.push([this.makeMarkdownTemplate(data, template)])
-            content = ''
-            button = []
+          const { des, url } = await this.makeMarkdownImage(i.file, i.summary)
+          const length = config.customMD?.[data.self_id]?.keys?.length || config.markdown.template.length
+          if (template.length == length - 1) {
+            template.push(content)
+            template = [des]
+            templates.push(template)
+          } else {
+            template.push(content + des)
           }
 
-          template = {
-            a: content + des,
-            b: url
-          }
-          content = ''
+          content = url
           break
         } case 'markdown':
           if (typeof i.data == 'object') messages.push([{ type: 'markdown', ...i.data }])
-          else messages.push([{ type: 'markdown', content: i.data }])
+          else content += i.data
           break
         case 'button':
           button.push(...this.makeButtons(data, i.data))
           break
         case 'face':
+        case "ark":
+        case "embed":
+          messages.push([i])
           break
         case 'reply':
           reply = i
@@ -516,10 +525,9 @@ const adapter = new class QQBotAdapter {
     }
     if (raw.length) messages.push(raw)
 
-    if (template.b) template.b += content
-    else if (content) template = { a: content }
-
-    if (template.a) messages.push([this.makeMarkdownTemplate(data, template)])
+    if (content)
+      template.push(content)
+    messages.push(...this.makeMarkdownTemplate(data, templates))
 
     if (button.length < 5 && config.btnSuffix[data.self_id]) {
       let { position, values } = config.btnSuffix[data.self_id]
@@ -552,7 +560,7 @@ const adapter = new class QQBotAdapter {
       }
       while (button.length) {
         messages.push([
-          this.makeMarkdownTemplate(data, { a: ' ' }),
+          ...this.makeMarkdownTemplate(data, [[' ']])[0],
           ...button.splice(0, 5)
         ])
       }
@@ -567,10 +575,9 @@ const adapter = new class QQBotAdapter {
 
   async makeMsg(data, msg) {
     const sendType = ['audio', 'image', 'video', 'file']
-    const messages = []
-    let message = []
-    const button = []
-    let reply
+    const messages = [], button = []
+    let message = [], reply
+
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i == 'object') { i = { ...i } } else { i = { type: 'text', text: i } }
 
@@ -579,7 +586,7 @@ const adapter = new class QQBotAdapter {
           // if (config.toQQUin && userIdCache[user_id]) {
           //   i.qq = userIdCache[user_id]
           // }
-          // i.qq = i.qq.replace(`${data.self_id}${this.sep}`, "")
+          // i.qq = i.qq?.replace?.(`${data.self_id}${this.sep}`, "")
           continue
         case 'text':
         case 'face':
@@ -620,8 +627,6 @@ const adapter = new class QQBotAdapter {
               reply: (msg) => {
                 i = msg
               },
-              // 兼容一下
-              bot: {},
               user_id: data.bot.uin,
               nickname: data.bot.nickname
             }
@@ -742,7 +747,7 @@ const adapter = new class QQBotAdapter {
 
       switch (i.type) {
         case 'at':
-          i.user_id = i.qq.replace(/^qg_/, '')
+          i.user_id = i.qq?.replace?.(/^qg_/, '')
         case 'text':
         case 'face':
         case 'ark':
@@ -933,7 +938,7 @@ const adapter = new class QQBotAdapter {
       user_id: user_id.replace(/^qg_/, '')
     }
     return {
-      ...this.pickFriend(id, user_id),
+      ...this.pickGuildFriend(id, user_id),
       ...i
     }
   }
@@ -1363,7 +1368,7 @@ const adapter = new class QQBotAdapter {
     Bot[id].sdk.on('message', event => this.makeMessage(id, event))
     Bot[id].sdk.on('notice', event => this.makeNotice(id, event))
 
-    logger.mark(`${logger.blue(`[${id}]`)} ${this.name}(${this.id}) ${this.version} 已连接`)
+    Bot.makeLog("mark", `${this.name}(${this.id}) ${this.version} 已连接`, id)
     Bot.em(`connect.${id}`, { self_id: id })
     DAU[id] = await getDAU(id)
     callStats[id] = await getCallStats(id)
