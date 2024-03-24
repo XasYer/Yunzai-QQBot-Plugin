@@ -368,9 +368,10 @@ const adapter = new class QQBotAdapter {
   makeMarkdownTemplate (data, template) {
     const custom = config.customMD?.[data.self_id]
     const keys = custom?.keys.slice() || config.markdown.template.split('')
+
     const params = []
     for (const temp of template) {
-      if (!template.length) continue
+      if (!temp.length) continue
       params.push({
         key: keys.shift(),
         values: [temp]
@@ -406,6 +407,7 @@ const adapter = new class QQBotAdapter {
     let content = ''
     let reply
     let raw = []
+    const length = config.customMD?.[data.self_id]?.keys?.length || config.markdown.template.length
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i == 'object') i = { ...i }
@@ -484,11 +486,12 @@ const adapter = new class QQBotAdapter {
           break
         case 'image': {
           const { des, url } = await this.makeMarkdownImage(i.file, i.summary)
-          const length = config.customMD?.[data.self_id]?.keys?.length || config.markdown.template.length
+          const limit = template.length % (length - 1)
 
-          if (template.length === length - 1) {
+          // 图片数量超过模板长度时
+          if (template.length && !limit) {
             if (content) template.push(content)
-            template.push([des])
+            template.push(des)
           } else template.push(content + des)
 
           content = url
@@ -522,7 +525,11 @@ const adapter = new class QQBotAdapter {
     if (raw.length) messages.push(raw)
 
     if (content) template.push(content)
-    messages.push(this.makeMarkdownTemplate(data, template))
+    if (template.length > length) {
+      const templates = _(template).chunk(length).map(v => this.makeMarkdownTemplate(data, v)).value()
+      messages.push(...templates)
+    } else messages.push(this.makeMarkdownTemplate(data, template))
+
     if (button.length < 5 && config.btnSuffix[data.self_id]) {
       let { position, values } = config.btnSuffix[data.self_id]
       position = +position - 1
@@ -563,7 +570,6 @@ const adapter = new class QQBotAdapter {
     }
     return messages
   }
-
 
   async makeMsg (data, msg) {
     const sendType = ['audio', 'image', 'video', 'file']
@@ -708,7 +714,18 @@ const adapter = new class QQBotAdapter {
     }
 
     if ((config.markdown[data.self_id] || (data.toQQBotMD === true && config.customMD[data.self_id])) && data.toQQBotMD !== false) {
-      if (config.markdown[data.self_id] == 'raw') { msgs = await this.makeRawMarkdownMsg(data, msg) } else { msgs = await this.makeMarkdownMsg(data, msg) }
+      if (config.markdown[data.self_id] == 'raw') msgs = await this.makeRawMarkdownMsg(data, msg)
+      else msgs = await this.makeMarkdownMsg(data, msg)
+
+      const [mds, btns] = _.partition(msgs[0], v => v.type === 'markdown')
+      if (mds.length > 1) {
+        for (const idx in mds) {
+          msgs = mds[idx]
+          if (idx === mds.length - 1) msgs.push(...btns)
+          await sendMsg()
+        }
+        return rets
+      }
     } else {
       msgs = await this.makeMsg(data, msg)
     }
