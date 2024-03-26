@@ -694,7 +694,7 @@ const adapter = new class QQBotAdapter {
             err = { ...err.response.data, trace_id }
           }
           // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
-          Logger.error(data.self_id, '发送消息错误', i, err)
+          logger.error(data.self_id, '发送消息错误', i, err)
           rets.error.push(err)
           return false
         }
