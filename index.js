@@ -693,7 +693,8 @@ const adapter = new class QQBotAdapter {
             const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
             err = { ...err.response.data, trace_id }
           }
-          Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
+          // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
+          Logger.error(data.self_id, '发送消息错误', i, err)
           rets.error.push(err)
           return false
         }
@@ -827,7 +828,8 @@ const adapter = new class QQBotAdapter {
           if (ret.id) rets.message_id.push(ret.id)
           setDAU(data, 'send_count')
         } catch (err) {
-          Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
+          // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
+          logger.error(data.self_id, '发送消息错误', i, err)
           rets.error.push(err)
           return false
         }
