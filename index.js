@@ -469,7 +469,6 @@ const adapter = new class QQBotAdapter {
             }
             continue
           }
-          break
         case 'image': {
           const { des, url } = await this.makeMarkdownImage(data, baseUrl, i.file, i.summary)
           const limit = template.length % (length - 1)
@@ -672,7 +671,7 @@ const adapter = new class QQBotAdapter {
           Bot.makeLog('debug', ['发送消息返回', ret], data.self_id)
 
           rets.data.push(ret)
-          if (ret.msg_id) rets.message_id.push(ret.msg_id)
+          if (ret.id) rets.message_id.push(ret.id)
           setDAU(data, 'send_count')
         } catch (err) {
           if (err.response?.data) {
@@ -1309,7 +1308,7 @@ const adapter = new class QQBotAdapter {
                 msg = i
               }
               if (msg?.length > 0) {
-                this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(event.group_id, msg), msg)
+                this.sendMsg(data, `groups/${event.group_id}`, msg => data.bot.sdk.sendGroupMessage(event.group_id, msg), msg)
               }
             })
           }
