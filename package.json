@@ -3,8 +3,9 @@
   "type": "module",
   "author": "TimeRainStarSky",
   "dependencies": {
-    "qq-group-bot": "1.0.34",
+    "@goodtools/protobuf-decoder": "^1.0.0",
+    "qq-group-bot": "1.0.42",
     "qrcode": "^1.5.3",
-    "silk-wasm": "^3.2.4"
+    "silk-wasm": "^3.3.3"
   }
 }
