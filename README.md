@@ -32,9 +32,9 @@ TRSS-Yunzai QQBot 适配器 插件
     ```yml
     mdSuffix:
       BotQQ:
-          - key: key1
+          - key: key
             values:
-              - value1 # ^value1则加在key1的最前面,默认加在最后
+              - value # 如果用到了key则不会添加
           # ...
     ```
 10. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以button的模式`自动加入`按钮指定行数并独占一行`,当`超过`5排按钮时`不会添加`
