@@ -30,7 +30,7 @@ const numToChinese = {
 const _path = process.cwd()
 
 class Dau {
-  async stat(uin, dau, pro) {
+  async stat (uin, dau, pro) {
     let msg = [dau.time, ...this.toDauMsg(dau, 6), '']
 
     const path = join(_path, 'data', 'QQBotDAU', uin)
@@ -100,7 +100,7 @@ class Dau {
    * @param {object} dat
    * @returns
    */
-  monthlyDau(data) {
+  monthlyDau (data) {
     const convertChart = (type, day, prefix = '') => {
       let chartData = { time: day.time }
       chartData[`${prefix}name`] = dauAttr[`${type}_count`]
@@ -121,7 +121,7 @@ class Dau {
     return data
   }
 
-  toDauMsg(dau, num = 0) {
+  toDauMsg (dau, num = 0) {
     const msg = []
     _.each(dauAttr, (v, k) => {
       msg.push(`${v}：${dau[k]}`)
@@ -129,7 +129,7 @@ class Dau {
     return num ? _.take(msg, num) : msg
   }
 
-  getDau(data) {
+  getDau (data) {
     _.keys(dauAttr).forEach(v => {
       if (!data[v]) {
         if (['user_cache', 'group_cache'].includes(v)) data[v] = {}
@@ -139,7 +139,7 @@ class Dau {
     return data
   }
 
-  async setDau(data, type, dau, db) {
+  async setDau (data, type, dau, db) {
     const uin = data.self_id
     const key = `${type}:${uin}`
     switch (type) {
@@ -160,7 +160,7 @@ class Dau {
         })
         break
       case 'group_increase_count':
-      case 'group_decrease_count':
+      case 'group_decrease_count': {
         let list = await db.get(`QQBot:${key}`) || {}
         if (!list[data.group_id]) {
           dau[type]++
@@ -169,6 +169,7 @@ class Dau {
           this.setDB(`:${key}`, list, db)
         }
         break
+      }
     }
     return dau
   }
@@ -178,7 +179,7 @@ class Dau {
    * @param {string} key
    * @param {*} data
    */
-  setDB(key, data, db) {
+  setDB (key, data, db) {
     db.set(`QQBot${key}`, data, 1)
   }
 }
