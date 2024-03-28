@@ -17,15 +17,26 @@ TRSS-Yunzai QQBot 适配器 插件
 3. `#QQBotDAU` and `#QQBotDAUpro`
 5. `QQBot-Plugin/Model`中`自定义入群发送主动消息`
 6. `config/QQBot.yaml`中使用以下自定义模版,如果设置了全局md会优先使用自定义模版,配合`e.toQQBotMD = true`将特定消息`转换`成md,亦可在`全局md模式下`通过`e.toQQBotMD = false`将特定消息`不转换`成md
-    ```yml
-    customMD:
-      BotQQ:
-        custom_template_id: 模版id
-        keys: 
-          - key1 # 对应的模版key名字
-          - key2
-          # ... 最多10个
-    ```
+    - 方法1: 直接修改`config/QQBot.yaml` **(推荐)**
+      ```yml
+      customMD:
+        BotQQ:
+          custom_template_id: 模版id
+          keys: 
+            - key1 # 对应的模版key名字
+            - key2
+            # ... 最多10个
+      ```
+    - 方法2: 在`Model`目录下新建`markdownTemplate.js`文件,写入以下内容 **(不推荐)**
+      ```js
+      // params为数组,每一项为{key:string,values: ['\u200B']} // values固定为['\u200B']
+      // split: 是否将md参数分割 比如 ![图片](链接) 会分成两个参数 ![图片] 和 (链接)
+      export defalut {
+        custom_template_id: '',
+        params: [],
+        split: true
+      }
+      ```
 7. `config/QQBot.yaml`中`saveDBFile: false`是否使用基于文件的数据库
 8. `#QQBot调用统计` 根据`e.reply()`发送的消息进行统计,每条消息仅统计一次,未做持久化处理,默认关闭,`#QQBot设置调用统计开启`
 9. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以MD的模式`自动加入`消息最后`

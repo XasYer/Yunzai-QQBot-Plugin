@@ -32,6 +32,13 @@ setTimeout(async () => {
     }
   })()
 }, 5000)
+const markdown_template = await (async () => {
+  try {
+    return (await import('./Model/markdownTemplate.js')).default
+  } catch (error) {
+    return false
+  }
+})()
 
 let { config, configSave } = await makeConfig('QQBot', {
   tips: '',
@@ -365,29 +372,61 @@ const adapter = new class QQBotAdapter {
   }
 
   makeMarkdownTemplate(data, template) {
-    const custom = config.customMD?.[data.self_id]
-    const keys = custom?.keys.slice() || config.markdown.template.split('')
-
-    const params = []
+    let keys, custom_template_id, params = [], index = 0
+    const result = []
+    if (markdown_template) {
+      custom_template_id = markdown_template.custom_template_id
+      params = _.cloneDeep(markdown_template.params)
+      index = 1
+    } else {
+      const custom = config.customMD?.[data.self_id]
+      custom_template_id = custom?.custom_template_id || config.markdown[data.self_id]
+      keys = _.cloneDeep(custom?.keys) || config.markdown.template.split('')
+    }
     for (const temp of template) {
       if (!temp.length) continue
-      params.push({
-        key: keys.shift(),
-        values: [temp]
-      })
+      if (index) {
+        if (index - 1 == markdown_template.params.length) {
+          result.push({
+            type: 'markdown',
+            custom_template_id,
+            params: _.cloneDeep(params)
+          })
+          params = _.cloneDeep(markdown_template.params)
+          index = 1
+        }
+        if (markdown_template.split === true) {
+          for (const i of splitMarkDownTemplate(temp)) {
+            params[index - 1].values = [i]
+            index++
+          }
+        } else {
+          params[index - 1].values = [temp]
+          index++
+        }
+      } else {
+        params.push({
+          key: keys.shift(),
+          values: [temp]
+        })
+      }
     }
 
     if (config.mdSuffix?.[data.self_id]) {
-      if (!params.some(p => config.mdSuffix[data.self_id].some(c => c.key === p.key))) {
+      if (!params.some(p => config.mdSuffix[data.self_id].some(c => (c.key === p.key && p.values[0] !== '\u200B')))) {
         params.push(...config.mdSuffix[data.self_id])
       }
     }
 
-    return [{
-      type: 'markdown',
-      custom_template_id: custom?.custom_template_id || config.markdown[data.self_id],
-      params
-    }]
+    if (params.length) {
+      result.push({
+        type: 'markdown',
+        custom_template_id,
+        params
+      })
+    }
+
+    return result
   }
 
   async makeMarkdownMsg(data, baseUrl, msg) {
@@ -396,7 +435,7 @@ const adapter = new class QQBotAdapter {
     let template = []
     let content = ''
     let reply
-    const length = config.customMD?.[data.self_id]?.keys?.length || config.markdown.template.length
+    const length = markdown_template?.params?.length || config.customMD?.[data.self_id]?.keys?.length || config.markdown.template.length
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i == 'object') i = { ...i }
@@ -1818,6 +1857,27 @@ async function initUserStats(self_id) {
     }
   }
   userStats[self_id] = user
+}
+
+function splitMarkDownTemplate(text) {
+  const rand = randomUUID()
+  const regexList = [
+    /(!?\[.*?\])(\s*\(.*?\))/,
+    /(\[.*?\])(\[.*?\])/,
+    /()(\*)([^\*]+?\*)/,
+    /(`)([^`]+?`)/,
+    /(_)([^_]+?_)/,
+    /(~)(~)/,
+    /^(#)()/,
+    /(``)(`)/
+  ]
+  for (const reg of regexList) {
+    for (const match of text.match(new RegExp(reg, 'g')) || []) {
+      const tmp = reg.exec(match)
+      text = text.replace(tmp[0], tmp.slice(1).join(rand))
+    }
+  }
+  return text.split(rand)
 }
 
 async function getDB(self_id) {
