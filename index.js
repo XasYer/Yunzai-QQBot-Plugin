@@ -731,9 +731,13 @@ const adapter = new class QQBotAdapter {
         }
       }
     }
+
     if (TmplPkg && TmplPkg?.Button && !data.toQQBotMD) {
       let fncName = /^\[\S+\]\[(\S+)\]$/.exec(data.logFnc)[1]
-      let res = TmplPkg.Button[fncName](data)
+      const Btn = TmplPkg.Button[fncName]
+
+      let res
+      if (Btn) res = Btn(data)
 
       if (res) {
         data.toQQBotMD = true
