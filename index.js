@@ -492,14 +492,12 @@ const adapter = new class QQBotAdapter {
               })
             }
             const btn = getButton(i.data)
-            const result = btn.reduce((acc, cur) => {
+            let result = btn.reduce((acc, cur) => {
               const duplicate = acc.find(obj => obj.text === cur.text && obj.callback === cur.callback && obj.input === cur.input && obj.link === cur.link)
               if (!duplicate) return acc.concat([cur])
               else return acc
             }, [])
-            for (const b of result) {
-              button.push(...this.makeButtons(data, b.data))
-            }
+
             const e = {
               reply: (msg) => {
                 i = msg
@@ -507,8 +505,19 @@ const adapter = new class QQBotAdapter {
               user_id: data.bot.uin,
               nickname: data.bot.nickname
             }
+
             e.runtime = new Runtime(e)
-            await Handler.call('ws.tool.toImg', e, i.data)
+            i.data.cfg = { retType: 'msgId', returnID: true }
+            let { wsids } = await Handler.call('ws.tool.toImg', e, i.data)
+
+            if (!result.length && data.wsids.fnc) {
+              wsids = wsids.map((id, k) => ({ text: `${data.wsids.text}${k}`, callback: `#ws查看${id}` }))
+              result = _.chunk(_.tail(wsids), data.wsids.col)
+            }
+
+            for (const b of result) {
+              button.push(...this.makeButtons(data, b.data ? b.data : [b]))
+            }
           } else {
             for (const { message } of i.data) {
               messages.push(...(await this.makeMarkdownMsg(data, baseUrl, message)))
@@ -660,8 +669,8 @@ const adapter = new class QQBotAdapter {
             for (const { message } of i.data) {
               messages.push(...(await this.makeMsg(data, message)))
             }
-            break
           }
+          break
         case 'raw':
           if (Array.isArray(i.data)) {
             messages.push(i.data)
@@ -736,10 +745,19 @@ const adapter = new class QQBotAdapter {
       let fncName = /^\[\S+\]\[(\S+)\]$/.exec(data.logFnc)[1]
       const Btn = TmplPkg.Button[fncName]
 
+      if (msg.type === 'node') data.wsids = config.toImg
+
       let res
       if (Btn) res = Btn(data)
 
-      if (res) {
+      if (res?.nodeMsg) {
+        data.toQQBotMD = true
+        data.wsids = {
+          text: res.nodeMsg,
+          fnc: fncName,
+          col: res.col
+        }
+      } else if (res) {
         data.toQQBotMD = true
         res = segment.button(...res)
         msg = _.castArray(msg)
