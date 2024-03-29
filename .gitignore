@@ -4,3 +4,4 @@ test
 Model/markdownTemplate.js
 Model/groupIncreaseMsg.js
 **/test.js
+templates/*
