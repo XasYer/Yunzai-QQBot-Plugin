@@ -65,6 +65,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   customMD: {},
   mdSuffix: {},
   btnSuffix: {},
+  filterLog: {},
   sep: '',
   // dau: {
   //   enable: true,
@@ -510,7 +511,7 @@ const adapter = new class QQBotAdapter {
             i.data.cfg = { retType: 'msgId', returnID: true }
             let { wsids } = await Handler.call('ws.tool.toImg', e, i.data)
 
-            if (!result.length && data.wsids.fnc) {
+            if (!result.length && data.wsids && data.wsids?.fnc) {
               wsids = wsids.map((id, k) => ({ text: `${data.wsids.text}${k}`, callback: `#ws查看${id}` }))
               result = _.chunk(_.tail(wsids), data.wsids.col)
             }
@@ -742,13 +743,13 @@ const adapter = new class QQBotAdapter {
     }
 
     if (TmplPkg && TmplPkg?.Button && !data.toQQBotMD) {
-      let fncName = /^\[\S+\]\[(\S+)\]$/.exec(data.logFnc)[1]
+      let fncName = /^\[.*?\]\[(\S+)\]$/.exec(data.logFnc)[1]
       const Btn = TmplPkg.Button[fncName]
 
-      if (msg.type === 'node') data.wsids = config.toImg
+      if (msg.type === 'node') data.wsids = { toImg: config.toImg }
 
       let res
-      if (Btn) res = Btn(data)
+      if (Btn) res = Btn(data, msg)
 
       if (res?.nodeMsg) {
         data.toQQBotMD = true
@@ -1095,7 +1096,12 @@ const adapter = new class QQBotAdapter {
         data.sender.user_id = user_id.custom
       }
     }
-    Bot.makeLog('info', `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
+
+    // 自定义消息过滤前台日志防刷屏(自欺欺人大法)
+    const filterLog = config.filterLog?.[data.self_id] || []
+    let logStat = filterLog.includes(_.trim(data.raw_message)) ? 'debug' : 'info'
+    Bot.makeLog(logStat, `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
+
     data.reply = msg => this.sendGroupMsg({
       ...data, group_id: event.group_id
     }, msg, { id: data.message_id })
@@ -1564,6 +1570,10 @@ export class QQBotAdapter extends plugin {
           reg: '^#[Qq]+[Bb]ot刷新co?n?fi?g$',
           fnc: 'refConfig',
           permission: config.permission
+        }, {
+          reg: '^#[Qq]+[Bb]ot(添加|删除)过滤日志',
+          fnc: 'filterLog',
+          permission: config.permission
         }
       ]
     })
@@ -1672,6 +1682,30 @@ export class QQBotAdapter extends plugin {
       `减少用户: ${stats.decrease_user_count}`,
       `相同用户: ${stats.invariant_user_count}`
     ].join('\n'), toButton(this.e.user_id)])
+  }
+
+  // 自欺欺人大法
+  async filterLog () {
+    const match = /^#[Qq]+[Bb]ot(添加|删除)过滤日志(.*)/.exec(this.e.msg)
+    let msg = _.trim(match[2]) || ''
+    if (!msg) return false
+
+    let isAdd = match[1] === '添加'
+    const filterLog = config.filterLog[this.e.self_id] || []
+    const has = filterLog.includes(msg)
+
+    if (has && isAdd) return false
+    else if (!has && !isAdd) return false
+    else if (!has && isAdd) {
+      filterLog.push(msg)
+      msg = `【${msg}】添加成功， info日志已过滤该消息`
+    } else {
+      _.pull(filterLog, msg)
+      msg = `【${msg}】删除成功， info日志已恢复打印该消息`
+    }
+    config.filterLog[this.e.self_id] = filterLog
+    await configSave()
+    this.reply(msg, true)
   }
 
   mergeDAU (dauPath) {
