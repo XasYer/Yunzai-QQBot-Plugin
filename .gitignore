@@ -1,7 +1,8 @@
-node_modules
 db
 test
+.vscode
+templates
+**/test.js
+node_modules
 Model/markdownTemplate.js
 Model/groupIncreaseMsg.js
-**/test.js
-templates
