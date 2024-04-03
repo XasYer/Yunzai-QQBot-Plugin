@@ -51,7 +51,6 @@ let { config, configSave } = await makeConfig('QQBot', {
   tips: '',
   permission: 'master',
   toQRCode: true,
-  toQRCodeRegExp: '',
   toCallback: true,
   toBotUpload: true,
   hideGuildRecall: false,
@@ -100,7 +99,11 @@ const adapter = new class QQBotAdapter {
     this.path = 'data/QQBot/'
     this.version = 'qq-group-bot v11.45.14'
 
-    this.toQRCodeRegExp = config.toQRCodeRegExp || config.toQRCode ? /https?:\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?/g : false
+    if (typeof config.toQRCode == 'boolean') {
+      this.toQRCodeRegExp = config.toQRCode ? /https?:\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?/g : false
+    } else {
+      this.toQRCodeRegExp = new RegExp(config.toQRCode, 'g')
+    }
 
     this.sep = config.sep || ((process.platform == 'win32') && '') || ':'
     this.bind_user = {}
