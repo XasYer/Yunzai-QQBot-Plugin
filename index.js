@@ -522,6 +522,9 @@ const adapter = new class QQBotAdapter {
             for (const b of result) {
               button.push(...this.makeButtons(data, b.data ? b.data : [b]))
             }
+          } else if (TmplPkg && TmplPkg?.nodeMsg) {
+            messages.push(...(await this.makeMarkdownMsg(data, baseUrl, TmplPkg.nodeMsg(i.data))))
+            continue
           } else {
             for (const { message } of i.data) {
               messages.push(...(await this.makeMarkdownMsg(data, baseUrl, message)))
