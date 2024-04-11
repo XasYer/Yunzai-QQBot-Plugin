@@ -37,7 +37,6 @@ TRSS-Yunzai QQBot 适配器 插件
         split: true
       }
       ```
-7. `config/QQBot.yaml`中`saveDBFile: false`是否使用基于文件的数据库
 8. `#QQBot调用统计` 根据`e.reply()`发送的消息进行统计,每条消息仅统计一次,未做持久化处理,默认关闭,`#QQBot设置调用统计开启`
 9. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以MD的模式`自动加入`消息最后`
     ```yml

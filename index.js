@@ -5,47 +5,26 @@ import QRCode from 'qrcode'
 import moment from 'moment'
 import { join } from 'node:path'
 import imageSize from 'image-size'
-import schedule from 'node-schedule'
 import { randomUUID } from 'node:crypto'
 import { Bot as QQBot } from 'qq-group-bot'
 import { encode as encodeSilk } from 'silk-wasm'
-import Runtime from '../../lib/plugins/runtime.js'
-import Handler from '../../lib/plugins/handler.js'
-import makeConfig from '../../lib/plugins/config.js'
-import { Dau, Level, decodePb } from './Model/index.js'
+import {
+  Dau,
+  decodePb,
+  importJS,
+  Runtime,
+  Handler,
+  makeConfig,
+  splitMarkDownTemplate
+} from './Model/index.js'
 
+const startTime = new Date();
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
 const userIdCache = {}
 const DAU = {}
-const callStats = {}
-const userStats = {}
-const DBCache = {}
-let findUser_id
-setTimeout(async () => {
-  findUser_id = await (async () => {
-    try {
-      return (await import('../ws-plugin/model/db/index.js')).findUser_id
-    } catch (error) {
-      return false
-    }
-  })()
-}, 5000)
-const markdown_template = await (async () => {
-  try {
-    return (await import('./Model/markdownTemplate.js')).default
-  } catch (error) {
-    return false
-  }
-})()
-
-const TmplPkg = await (async () => {
-  try {
-    return (await import('./templates/index.js'))
-  } catch (error) {
-    return false
-  }
-})()
+const markdown_template = await importJS('model/markdownTemplate.js', 'default')
+const TmplPkg = await importJS('model/templates/index.js')
 
 let { config, configSave } = await makeConfig('QQBot', {
   tips: '',
@@ -56,7 +35,6 @@ let { config, configSave } = await makeConfig('QQBot', {
   hideGuildRecall: false,
   toQQUin: false,
   toImg: true,
-  saveDBFile: false,
   callStats: false,
   userStats: false,
   markdown: {
@@ -73,11 +51,15 @@ let { config, configSave } = await makeConfig('QQBot', {
   //   group_count: true, // 上行消息群数
   //   msg_count: true,      // 上行消息量
   //   send_count: true,     // 下行消息量
+  //   all_user_count: true, // 所有用户数
+  //   all_group_count: true, // 所有群组数
   //   group_increase_count: true, // 新增群数量
   //   group_decrease_count: true, // 减少群数量
-  //   increase_user_count: false, // 增加用户数
-  //   decrease_user_count: false, // 减少用户数
-  //   invariant_user_count: false,// 相同用户数
+  // 新增用户数量
+  // 消息数量最多的用户
+  // 消息数量最多的群聊
+  // 昨日数据
+  // 平均数据
   // },
   bot: {
     sandbox: false,
@@ -88,7 +70,7 @@ let { config, configSave } = await makeConfig('QQBot', {
 }, {
   tips: [
     '欢迎使用 TRSS-Yunzai QQBot Plugin ! 作者：时雨🌌星空 & 小叶',
-    '参考：https://github.com/xiaoye12123/Yunzai-QQBot-Plugin'
+    '参考：https://github.com/XasYer/Yunzai-QQBot-Plugin'
   ]
 })
 
@@ -734,7 +716,7 @@ const adapter = new class QQBotAdapter {
 
           rets.data.push(ret)
           if (ret.id) rets.message_id.push(ret.id)
-          setDAU(data, 'send_count')
+          DAU[data.self_id].setDau('send_msg', data)
         } catch (err) {
           if (err.response?.data) {
             const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
@@ -796,8 +778,6 @@ const adapter = new class QQBotAdapter {
       msgs = await this.makeMsg(data, msg)
       await sendMsg()
     }
-
-    setLogFnc(data)
 
     if (Array.isArray(data._ret_id)) { data._ret_id.push(...rets.message_id) }
     return rets
@@ -897,7 +877,7 @@ const adapter = new class QQBotAdapter {
 
           rets.data.push(ret)
           if (ret.id) rets.message_id.push(ret.id)
-          setDAU(data, 'send_count')
+          DAU[data.self_id].setDau('send_msg', data)
         } catch (err) {
           // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
           logger.error(data.self_id, '发送消息错误', i, err)
@@ -911,10 +891,6 @@ const adapter = new class QQBotAdapter {
     if (await sendMsg() === false) {
       msgs = await this.makeGuildMsg(data, msg)
       await sendMsg()
-    }
-    if (!data.QQBotSetLogFnc) {
-      setLogFnc(data)
-      data.QQBotSetLogFnc = true
     }
     return rets
   }
@@ -1095,8 +1071,8 @@ const adapter = new class QQBotAdapter {
       user_id: `${data.self_id}${this.sep}${event.sender.user_id}`
     }
     data.group_id = `${data.self_id}${this.sep}${event.group_id}`
-    if (config.toQQUin && typeof findUser_id === 'function') {
-      const user_id = await findUser_id({ user_id: data.user_id })
+    if (config.toQQUin && Handler.has('ws.tool.findUserId')) {
+      const user_id = await Handler.call('ws.tool.findUserId', { user_id: data.user_id })
       if (user_id?.custom) {
         userIdCache[user_id.custom] = data.user_id
         data.sender.user_id = user_id.custom
@@ -1146,8 +1122,8 @@ const adapter = new class QQBotAdapter {
       src_guild_id: event.guild_id,
       src_channel_id: event.channel_id
     }
-    if (config.toQQUin && typeof findUser_id === 'function') {
-      const user_id = await findUser_id({ user_id: data.user_id })
+    if (config.toQQUin && Handler.has('ws.tool.findUserId')) {
+      const user_id = await Handler.call('ws.tool.findUserId', { user_id: data.user_id })
       if (user_id?.custom) {
         userIdCache[user_id.custom] = data.user_id
         data.sender.user_id = user_id.custom
@@ -1233,8 +1209,7 @@ const adapter = new class QQBotAdapter {
     }
 
     data.bot.stat.recv_msg_cnt++
-    setDAU(data, 'msg_count')
-    setUserStats(data.self_id, data.user_id)
+    DAU[data.self_id].setDau('receive_msg', data)
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
@@ -1391,7 +1366,7 @@ const adapter = new class QQBotAdapter {
       case 'action':
         return this.makeCallback(id, event)
       case 'increase':
-        setDAU(data, 'group_increase_count')
+        DAU[data.self_id].setDau('group_increase', data)
         if (event.notice_type === 'group') {
           const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'groupIncreaseMsg.js')
           if (fs.existsSync(path)) {
@@ -1410,7 +1385,7 @@ const adapter = new class QQBotAdapter {
         }
         return
       case 'decrease':
-        setDAU(data, 'group_decrease_count')
+        DAU[data.self_id].setDau('group_decrease', data)
       case 'update':
       case 'member.increase':
       case 'member.decrease':
@@ -1425,15 +1400,15 @@ const adapter = new class QQBotAdapter {
   }
 
   getFriendMap (id) {
-    return config.saveDBFile ? Bot.getMap(`${this.path}${id}/Friend`) : new Map()
+    return Bot.getMap(`${this.path}${id}/Friend`)
   }
 
   getGroupMap (id) {
-    return config.saveDBFile ? Bot.getMap(`${this.path}${id}/Group`) : new Map()
+    return Bot.getMap(`${this.path}${id}/Group`)
   }
 
   getMemberMap (id) {
-    return config.saveDBFile ? Bot.getMap(`${this.path}${id}/Member`) : new Map()
+    return Bot.getMap(`${this.path}${id}/Member`)
   }
 
   async connect (token) {
@@ -1503,9 +1478,8 @@ const adapter = new class QQBotAdapter {
 
     Bot.makeLog('mark', `${this.name}(${this.id}) ${this.version} 已连接`, id)
     Bot.em(`connect.${id}`, { self_id: id })
-    DAU[id] = await getDAU(id)
-    callStats[id] = await getCallStats(id)
-    await initUserStats(id)
+    DAU[id] = new Dau(id)
+    await DAU[id].init()
     return true
   }
 
@@ -1565,10 +1539,10 @@ export class QQBotAdapter extends plugin {
           reg: '^#[Qq]+[Bb]ot调用统计$',
           fnc: 'callStat',
           permission: config.permission
-        }, {
-          reg: '^#[Qq]+[Bb]ot用户统计$',
-          fnc: 'userStat',
-          permission: config.permission
+          // }, {
+          //   reg: '^#[Qq]+[Bb]ot用户统计$',
+          //   fnc: 'userStat',
+          //   permission: config.permission
         }, {
           reg: '^#[Qq]+[Bb]ot绑定用户.+$',
           fnc: 'BindUser'
@@ -1660,35 +1634,30 @@ export class QQBotAdapter extends plugin {
     const dau = DAU[uin]
     if (!dau) return false
 
-    const data = await Dau.stat(uin, dau, pro)
-    if (!data) return
-    this.reply([data, toButton(this.e.user_id)], true)
+    const msg = await dau.getDauStatsMsg(this.e, pro)
+    if (msg.length) this.reply(msg, true)
   }
 
   async callStat () {
-    if (!config.callStats || !callStats[this.e.self_id]) return false
-    const arr = Object.entries(callStats[this.e.self_id]).sort((a, b) => b[1] - a[1])
-    const msg = [getDate(), '数据可能不准确,请自行识别']
-    for (let i = 0; i < 10; i++) {
-      if (!arr[i]) break
-      const s = arr[i]
-      msg.push(`${i + 1}: ${s[0].replace(/[^\[].*-[pP]lugin\/?/, '')}\t\t${s[1]}次`)
-    }
-    this.reply([msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), toButton(this.e.user_id)], true)
+    if (!config.callStats) return false
+    const dau = DAU[this.e.self_id]
+    if (!dau) return false
+    const msg = dau.getCallStatsMsg(this.e)
+    if (msg.length) this.reply(msg, true)
   }
 
-  async userStat () {
-    if (!config.userStats || !userStats[this.e.self_id]) return false
-    const info = userStats[this.e.self_id]
-    const stats = info[info.today].stats
-    this.reply([[
-      info.today,
-      '相较于昨日',
-      `新增用户: ${stats.increase_user_count}`,
-      `减少用户: ${stats.decrease_user_count}`,
-      `相同用户: ${stats.invariant_user_count}`
-    ].join('\n'), toButton(this.e.user_id)])
-  }
+  // async userStat () {
+  //   if (!config.userStats || !userStats[this.e.self_id]) return false
+  //   const info = userStats[this.e.self_id]
+  //   const stats = info[info.today].stats
+  //   this.reply([[
+  //     info.today,
+  //     '相较于昨日',
+  //     `新增用户: ${stats.increase_user_count}`,
+  //     `减少用户: ${stats.decrease_user_count}`,
+  //     `相同用户: ${stats.invariant_user_count}`
+  //   ].join('\n'), toButton(this.e.user_id)])
+  // }
 
   // 自欺欺人大法
   async filterLog () {
@@ -1794,181 +1763,5 @@ export class QQBotAdapter extends plugin {
   }
 }
 
-logger.info(logger.green('- QQBot 适配器插件 加载完成'))
-
-function toButton (user_id) {
-  return segment.button([
-    { text: 'dau', callback: '#QQBotdau', permission: user_id },
-    { text: 'daupro', callback: '#QQBotdaupro', permission: user_id }
-  ], [
-    { text: '调用统计', callback: '#QQBot调用统计', permission: user_id },
-    { text: '用户统计', callback: '#QQBot用户统计', permission: user_id }
-  ])
-}
-
-async function getDAU (uin) {
-  const db = await getDB(uin)
-  const data = await db.get(`QQBotDAU:${uin}`) || {}
-  data.time = getDate()
-  data.msg_count = Number(await db.get(`QQBotDAU:msg_count:${uin}`)) || 0
-  data.send_count = Number(await db.get(`QQBotDAU:send_count:${uin}`)) || 0
-  return Dau.getDau(data)
-}
-
-/**
- * @param {'send_count'|'msg_count'|'group_increase_count'|'group_decrease_count'} type
- */
-async function setDAU (data, type) {
-  const db = await getDB(data.self_id)
-  DAU[data.self_id] = await Dau.setDau(data, type, DAU[data.self_id], db)
-}
-
-function getDate (d = 0) {
-  const date = new Date()
-  if (d != 0) date.setDate(date.getDate() + d)
-  const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
-  const [{ value: month }, , { value: day }, , { value: year }] = dtf.formatToParts(date)
-  return `${year}-${month}-${day}`
-}
-
-async function getCallStats (id) {
-  const db = await getDB(id)
-  return await db.get(`QQBotCallStats:${id}`) || {}
-}
-
-const msg_id_cache = {}
-
-async function setLogFnc (e) {
-  if (!config.callStats || !e.logFnc || msg_id_cache[e.message_id]) return
-  if (!callStats[e.self_id]) callStats[e.self_id] = {}
-  const stats = callStats[e.self_id]
-  if (!stats[e.logFnc]) stats[e.logFnc] = 0
-  stats[e.logFnc]++
-  const db = await getDB(e.self_id)
-  db.set(`QQBotCallStats:${e.self_id}`, stats, 1)
-  msg_id_cache[e.message_id] = setTimeout(() => {
-    delete msg_id_cache[e.message_id]
-  }, 60 * 5 * 1000)
-}
-
-// 每天零点清除DAU统计并保存到文件
-schedule.scheduleJob('0 0 0 * * ?', () => {
-  const yesMonth = moment().subtract(1, 'd').format('YYYY-MM')
-  const time = getDate()
-  const path = join(process.cwd(), 'data', 'QQBotDAU')
-  if (!fs.existsSync(path)) fs.mkdirSync(path)
-  for (const key in DAU) {
-    try {
-      const data = DAU[key]
-      delete data.user_cache
-      delete data.group_cache
-      DAU[key] = {
-        user_count: 0,
-        group_count: 0,
-        msg_count: 0,
-        send_count: 0,
-        user_cache: {},
-        group_cache: {},
-        group_increase_count: 0,
-        group_decrease_count: 0,
-        time
-      }
-      if (!fs.existsSync(join(path, key))) fs.mkdirSync(join(path, key))
-      let filePath = join(path, key, `${yesMonth}.json`)
-      let file = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : []
-      file.push(data)
-      fs.writeFile(filePath, JSON.stringify(file, '', '\t'), 'utf-8', () => { })
-      initUserStats(key)
-    } catch (error) {
-      logger.error('清除DAU数据出错,key: ' + key, error)
-    }
-  }
-  for (const key in callStats) {
-    callStats[key] = {}
-  }
-})
-
-/**
- * 用户量详情
- *
- * 相较于昨日
- * 新增用户数
- * 减少用户数
- * 相同用户数
- *
- * 新增: 昨日没发言的用户
- * 减少: 昨日用户数-相同用户数
- * 相同: 昨日发言了的用户
- */
-async function setUserStats (self_id, user_id) {
-  if (!config.userStats) return
-  const user = userStats[self_id]
-  const today = user[user.today]
-  // 今天刚发言
-  if (!today[user_id]) {
-    // 昨天发言了
-    if (user[user.yesterday][user_id]) {
-      today.stats.invariant_user_count++
-      today.stats.decrease_user_count--
-      if (today.stats.decrease_user_count < 0) {
-        today.stats.decrease_user_count = 0
-      }
-    } else today.stats.increase_user_count++ // 昨天没发言
-    today[user_id] = 0
-  }
-  today[user_id]++
-  const db = await getDB(self_id)
-  await db.set(`userStats:${user.today}`, user, 2)
-}
-
-async function initUserStats (self_id) {
-  const db = await getDB(self_id)
-  const today = getDate()
-  const yesterday = getDate(-1)
-  const user = await db.get(`userStats:${today}`) || {
-    today,
-    yesterday,
-    [today]: {},
-    [yesterday]: (await db.get(`userStats:${yesterday}`))?.[yesterday] || {
-      stats: {}
-    }
-  }
-  if (!user[today].stats) {
-    user[today].stats = {
-      increase_user_count: 0, // 增加用户数
-      decrease_user_count: Object.keys(user[yesterday]).length - 1, // 减少用户数
-      invariant_user_count: 0// 相同用户数
-    }
-  }
-  userStats[self_id] = user
-}
-
-function splitMarkDownTemplate (text) {
-  const rand = randomUUID()
-  const regexList = [
-    /(!?\[.*?\])(\s*\(.*?\))/,
-    /(\[.*?\])(\[.*?\])/,
-    /(\*)([^\*]+?\*)()/,
-    /(`)([^`]+?`)()/,
-    /(_)([^_]*?_)()/,
-    /(~)(~)/,
-    /^(#)()/,
-    /(``)(`)/
-  ]
-  for (const reg of regexList) {
-    for (const match of text.match(new RegExp(reg, 'g')) || []) {
-      const tmp = reg.exec(match)
-      text = text.replace(tmp[0], tmp.slice(1).join(rand))
-    }
-  }
-  return text.split(rand)
-}
-
-async function getDB (self_id) {
-  if (DBCache[self_id]) return DBCache[self_id]
-  const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'db', self_id)
-  const db = new Level(path)
-  await db.open()
-  DBCache[self_id] = db
-  return db
-}
+const endTime = new Date();
+logger.info(logger.green(`- QQBot 适配器插件 加载完成! 耗时：${endTime - startTime}ms`))

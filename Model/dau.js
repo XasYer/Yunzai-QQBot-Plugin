@@ -1,20 +1,26 @@
 import _ from 'lodash'
 import fs from 'node:fs'
 import moment from 'moment'
+import Level from './level.js'
 import { join } from 'node:path'
+import schedule from 'node-schedule'
+import { getTime } from './common.js'
 import puppeteer from '../../../lib/puppeteer/puppeteer.js'
 
 //! 需顺序
 const dauAttr = {
-  msg_count: '上行消息量',
-  send_count: '下行消息量',
+  receive_msg_count: '上行消息量',
+  send_msg_count: '下行消息量',
   user_count: '上行消息人数',
   group_count: '上行消息群数',
   group_increase_count: '新增群数',
   group_decrease_count: '减少群数',
-  user_cache: '用户缓存',
-  group_cache: '群组缓存',
-  time: '时间'
+}
+
+// 兼容一下旧数据
+const oldAttr = {
+  receive_msg_count: 'msg_count',
+  send_msg_count: 'send_count',
 }
 
 const numToChinese = {
@@ -29,41 +35,120 @@ const numToChinese = {
 
 const _path = process.cwd()
 
-class Dau {
-  async stat (uin, dau, pro) {
-    let msg = [dau.time, ...this.toDauMsg(dau, 6), '']
+export default class Dau {
 
-    const path = join(_path, 'data', 'QQBotDAU', uin)
-    const today = moment().format('YYYY-MM-DD')
-    const yearMonth = moment(today).format('YYYY-MM')
+  constructor (self_id) {
+    this.self_id = String(self_id)
+  }
+
+  #stats
+  #message_id_cache = {}
+  #call_stats
+  #group_increase
+  #group_decrease
+  #job
+  #today
+  #yesterday
+  #today_user_data
+  #yestoday_user_data
+
+  /**
+   * 动态读取参数
+   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'} key 
+   */
+  #getProp (key) {
+    switch (key) {
+      case 'stats':
+        return this.#stats
+      case 'message_id_cache':
+        return this.#message_id_cache
+      case 'call_stats':
+        return this.#call_stats
+      case 'group_increase':
+        return this.#group_increase
+      case 'group_decrease':
+        return this.#group_decrease
+      case 'today':
+        return this.#today
+      case 'yesterday':
+        return this.#yesterday
+      case 'today_user_data':
+        return this.#today_user_data
+      case 'yestoday_user_data':
+        return this.#yestoday_user_data
+      case 'job':
+        return this.#job
+      default:
+        return {}
+    }
+  }
+
+  /**
+   * 对数据初始化
+   */
+  async init () {
+    // 先初始化level
+    const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'db', this.self_id)
+    this.db = new Level(path)
+    await this.db.open()
+
+    // 时间
+    this.#today = getTime()
+    this.#yesterday = getTime(-1)
+
+    // 用户和群统计
+    this.#today_user_data = await this.#getDB(`user_group_stats`) || { user: {}, group: {} }
+    this.#yestoday_user_data = await this.#getDB(`user_group_stats`, this.#yesterday) || { user: {}, group: {} }
+
+    // DAU统计
+    this.#stats = await this.#getDB(`dau_stats`) || this.#initStats()
+
+    // 调用统计
+    this.#call_stats = await this.#getDB(`call_stats`) || {}
+
+    // 新增群, 减少群 列表
+    this.#group_increase = await this.#getDB(`group_increase`) || []
+    this.#group_decrease = await this.#getDB(`group_decrease`) || []
+
+    // 定时任务
+    this.#job = this.#setScheduleJob()
+  }
+
+  /**
+   * dau统计
+   * @param {*} pro 
+   * @returns 
+   */
+  async getDauStatsMsg (e, pro) {
+    let msg = [this.#today, ...this.#toDauMsg(this.#stats, 6), '']
+
+    const path = join(_path, 'data', 'QQBotDAU', this.self_id)
+    const yearMonth = moment(this.#today).format('YYYY-MM')
     // 昨日DAU
     try {
       let yesterdayDau = JSON.parse(fs.readFileSync(join(path, `${yearMonth}.json`), 'utf8'))
-      yesterdayDau = _.find(yesterdayDau, v => moment(v.time).isSame(moment(today).subtract(1, 'd')))
-      msg.push(...[yesterdayDau.time, ...this.toDauMsg(yesterdayDau, 6), ''])
+      yesterdayDau = _.find(yesterdayDau, v => moment(v.time).isSame(moment(this.#today).subtract(1, 'd')))
+      msg.push(...[yesterdayDau.time, ...this.#toDauMsg(yesterdayDau, 6), ''])
     } catch (error) { }
 
     // 最近30天平均
-    let totalDAU = {
-      user_count: 0,
-      group_count: 0,
-      msg_count: 0,
-      send_count: 0
-    }
+    let totalDAU = _.reduce(_.keys(dauAttr), (acc, key) => {
+      acc[key] = 0
+      return acc
+    }, {})
     let days = 0
     try {
       let days30 = [yearMonth, moment(yearMonth).subtract(1, 'm').format('YYYY-MM')]
       days30 = _(days30).map(v => {
         let file = join(path, `${v}.json`)
-        return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).reverse() : []
+        return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).reverse().map(v => this.#mergeOldDau(v)) : []
       }).flatten().take(30).value()
-
       days = days30.length
       totalDAU = _.mapValues(totalDAU, (v, k) => _.floor(_.meanBy(days30, k)))
     } catch (error) { }
 
     days = numToChinese[days] || days
-    msg.push(...[`最近${days}天平均`, ...this.toDauMsg(totalDAU, 4)])
+    msg.push(...[`最近${days}天平均`, ...this.#toDauMsg(totalDAU, 4)])
     msg = msg.join('\n')
 
     if (pro) {
@@ -72,16 +157,16 @@ class Dau {
 
       if (_.isEmpty(daus)) return false
       let data = _.fromPairs(daus.map(v => [v.replace('.json', ''), JSON.parse(fs.readFileSync(`${path}/${v}`))]))
-      data = this.monthlyDau(data)
+      data = this.#monthlyDau(data)
 
       totalDAU.days = days
       let renderdata = {
         daus: JSON.stringify(data),
         totalDAU,
-        todayDAU: dau,
+        todayDAU: this.#stats,
         monthly: _.keys(data).reverse(),
-        nickname: Bot[uin].nickname,
-        avatar: Bot[uin].avatar,
+        nickname: Bot[this.self_id].nickname,
+        avatar: Bot[this.self_id].avatar,
         tplFile: `${_path}/plugins/QQBot-Plugin/resources/html/DAU/DAU.html`,
         pluResPath: `${_path}/plugins/QQBot-Plugin/resources/`,
         _res_Path: `${_path}/plugins/genshin/resources/`
@@ -92,7 +177,62 @@ class Dau {
       msg = img
     }
 
-    return msg
+    return [msg, this.#getButton(e.user_id)]
+  }
+
+  getCallStatsMsg (e) {
+    const arr = _.entries(this.#call_stats).sort((a, b) => b[1] - a[1])
+    const msg = [this.#today, '数据可能不准确,请自行识别']
+    for (let i = 0; i < 10; i++) {
+      if (!arr[i]) break
+      const s = arr[i]
+      msg.push(`${i + 1}: ${s[0]}\t\t${s[1]}次`)
+    }
+    return [msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), this.#getButton(e.user_id)]
+  }
+
+  #getButton (user_id) {
+    return segment.button([
+      { text: 'dau', callback: '#QQBotdau', permission: user_id },
+      { text: 'daupro', callback: '#QQBotdaupro', permission: user_id }
+    ], [
+      { text: '调用统计', callback: '#QQBot调用统计', permission: user_id },
+      // { text: '用户统计', callback: '#QQBot用户统计', permission: user_id }
+    ])
+  }
+
+  #setScheduleJob () {
+    return schedule.scheduleJob('0 0 0 * * ?', () => {
+      const yesMonth = moment().subtract(1, 'd').format('YYYY-MM')
+      this.#today = getTime()
+      this.#yesterday = getTime(-1)
+      const path = join(process.cwd(), 'data', 'QQBotDAU')
+      if (!fs.existsSync(path)) fs.mkdirSync(path)
+      try {
+        const data = this.#stats
+        data.time = this.#yesterday
+        this.#stats = this.#initStats()
+        this.#call_stats = {}
+        if (!fs.existsSync(join(path, this.self_id))) fs.mkdirSync(join(path, this.self_id))
+        const filePath = join(path, this.self_id, `${yesMonth}.json`)
+        const file = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : []
+        file.push(data)
+        fs.writeFile(filePath, JSON.stringify(file, '', '\t'), 'utf-8', () => { })
+      } catch (error) {
+        logger.error('清除DAU数据出错,self_id: ' + this.self_id, error)
+      }
+    })
+  }
+
+  /**
+   * 兼容旧数据 三十天后删除 2024年4月11日
+   * @param {*} data 
+   */
+  #mergeOldDau (data) {
+    for (const k in oldAttr) {
+      !data[k] && (data[k] = data[oldAttr[k]])
+    }
+    return data
   }
 
   /**
@@ -100,8 +240,9 @@ class Dau {
    * @param {object} dat
    * @returns
    */
-  monthlyDau (data) {
+  #monthlyDau (data) {
     const convertChart = (type, day, prefix = '') => {
+      day = this.#mergeOldDau(day)
       let chartData = { time: day.time }
       chartData[`${prefix}name`] = dauAttr[`${type}_count`]
       chartData[`${prefix}count`] = day[`${type}_count`]
@@ -113,7 +254,7 @@ class Dau {
       let linedata = []
       _.each(v, day => {
         coldata.push(convertChart('user', day), convertChart('group', day))
-        linedata.push(convertChart('msg', day, 'line'), convertChart('send', day, 'line'))
+        linedata.push(convertChart('receive_msg', day, 'line'), convertChart('send_msg', day, 'line'))
       })
       return [linedata, coldata]
     })
@@ -121,57 +262,83 @@ class Dau {
     return data
   }
 
-  toDauMsg (dau, num = 0) {
+  #initStats () {
+    const stats = {}
+    _.each(dauAttr, (v, k) => stats[k] = 0)
+    return stats
+  }
+
+  #toDauMsg (data, num = 0) {
     const msg = []
     _.each(dauAttr, (v, k) => {
-      msg.push(`${v}：${dau[k]}`)
+      if (data[k] !== undefined) {
+        msg.push(`${v}：${data[k]}`)
+      } else {
+        msg.push(`${v}：${data[oldAttr[k]]}`)
+      }
     })
     return num ? _.take(msg, num) : msg
   }
 
-  getDau (data) {
-    _.keys(dauAttr).forEach(v => {
-      if (!data[v]) {
-        if (['user_cache', 'group_cache'].includes(v)) data[v] = {}
-        else data[v] = 0
-      }
-    })
-    return data
+  /**
+   * @param {'send_msg'|'receive_msg'|'group_increase'|'group_decrease'} type
+   */
+  async setDau (type, data) {
+    const key = `${type}_count`
+    switch (type) {
+      case 'send_msg':
+        this.#stats[key]++
+        await this.#setLogFnc(data)
+        break
+      case 'receive_msg':
+        this.#stats[key]++
+        await this.#setUserOrGroupStats(data.user_id, data.group_id)
+        break
+      case 'group_increase':
+      case 'group_decrease':
+        if (!this.#getProp(type)[data.group_id]) {
+          this.#stats[key]++
+          this.#getProp(type)[data.group_id] = 0
+        }
+        this.#getProp(type)[data.group_id]++
+        this.#setDB(type, this[type], 2)
+        break
+    }
+    await this.#setDB('dau_stats', this.#stats)
   }
 
-  async setDau (data, type, dau, db) {
-    const uin = data.self_id
-    const key = `${type}:${uin}`
-    switch (type) {
-      case 'send_count':
-        dau.send_count++
-        this.setDB(`DAU:${key}`, dau.send_count, db)
-        break
-      case 'msg_count':
-        dau.msg_count++
-        this.setDB(`DAU:${key}`, dau.msg_count, db)
-        _.each(['group', 'user'], v => {
-          let id = data[`${v}_id`]
-          if (id && !dau[`${v}_cache`][id]) {
-            dau[`${v}_cache`][id] = 1
-            dau[`${v}_count`]++
-            this.setDB(`DAU:${uin}`, dau, db)
-          }
-        })
-        break
-      case 'group_increase_count':
-      case 'group_decrease_count': {
-        let list = await db.get(`QQBot:${key}`) || {}
-        if (!list[data.group_id]) {
-          dau[type]++
-          this.setDB(`DAU:${uin}`, dau, db)
-          list[data.group_id] = 1
-          this.setDB(`:${key}`, list, db)
-        }
-        break
-      }
+  async  #setLogFnc (e) {
+    if (this.#message_id_cache[e.message_id]) return
+    if (!this.#call_stats[e.logFnc]) this.#call_stats[e.logFnc] = 0
+    this.#call_stats[e.logFnc]++
+    await this.#setDB('call_stats', this.#call_stats, 2)
+    this.#message_id_cache[e.message_id] = setTimeout(() => {
+      delete this.#message_id_cache[e.message_id]
+    }, 60 * 5 * 1000)
+  }
+
+  async #setUserOrGroupStats (user_id, group_id) {
+    const user = this.#today_user_data.user
+    if (!user[user_id]) {
+      user[user_id] = 0
+      this.#stats.user_count++
     }
-    return dau
+    user[user_id]++
+
+    if (group_id) {
+      const group = this.#today_user_data.group
+      if (!group[group_id]) {
+        group[group_id] = 0
+        this.#stats.group_count++
+      }
+      group[group_id]++
+    }
+
+    await this.#setDB(`user_group_stats:${this.#today}`, this.#today_user_data, 2)
+  }
+
+  async #getDB (key, date = this.#today) {
+    return await this.db.get(`${key}:${date}`)
   }
 
   /**
@@ -179,9 +346,7 @@ class Dau {
    * @param {string} key
    * @param {*} data
    */
-  setDB (key, data, db) {
-    db.set(`QQBot${key}`, data, 1)
+  async #setDB (key, data, time = 1, date = this.#today) {
+    await this.db.set(`${key}:${date}`, data, time)
   }
 }
-
-export default new Dau()
