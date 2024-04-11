@@ -334,7 +334,7 @@ export default class Dau {
       group[group_id]++
     }
 
-    await this.#setDB(`user_group_stats:${this.#today}`, this.#today_user_data, 2)
+    await this.#setDB(`user_group_stats`, this.#today_user_data, 2)
   }
 
   async #getDB (key, date = this.#today) {
