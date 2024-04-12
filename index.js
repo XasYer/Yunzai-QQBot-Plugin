@@ -552,7 +552,7 @@ const adapter = new class QQBotAdapter {
       messages.push(...templates)
     } else if (template.length) messages.push(this.makeMarkdownTemplate(data, template))
 
-    if (button.length < 5 && config.btnSuffix[data.self_id]) {
+    if (template.length && button.length < 5 && config.btnSuffix[data.self_id]) {
       let { position, values } = config.btnSuffix[data.self_id]
       position = +position - 1
       if (position > button.length) {
@@ -1437,7 +1437,18 @@ const adapter = new class QQBotAdapter {
     Bot[id] = {
       adapter: this,
       sdk: new QQBot(opts),
-      login () { return this.sdk.start() },
+      login () {
+        return new Promise(resolve => {
+          this.sdk.sessionManager.once("READY", resolve)
+          this.sdk.start()
+        })
+      },
+      logout () {
+        return new Promise(resolve => {
+          this.sdk.ws.once("close", resolve)
+          this.sdk.stop()
+        })
+      },
 
       uin: id,
       info: { id, ...opts },
@@ -1468,10 +1479,10 @@ const adapter = new class QQBotAdapter {
       callback: {}
     }
 
-    await Bot[id].login()
-
     Bot[id].sdk.logger = {}
     for (const i of ['trace', 'debug', 'info', 'mark', 'warn', 'error', 'fatal']) { Bot[id].sdk.logger[i] = (...args) => Bot.makeLog(i, args, id) }
+
+    await Bot[id].login()
 
     Bot[id].sdk.on('message', event => this.makeMessage(id, event))
     Bot[id].sdk.on('notice', event => this.makeNotice(id, event))
