@@ -46,6 +46,7 @@ export default class Dau {
   #call_stats
   #group_increase
   #group_decrease
+  #user_increase
   #job
   #today
   #yesterday
@@ -54,7 +55,7 @@ export default class Dau {
 
   /**
    * 动态读取参数
-   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'} key 
+   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'|'#user_increase'} key 
    */
   #getProp (key) {
     switch (key) {
@@ -68,6 +69,8 @@ export default class Dau {
         return this.#group_increase
       case 'group_decrease':
         return this.#group_decrease
+      case 'user_increase':
+        return this.#user_increase
       case 'today':
         return this.#today
       case 'yesterday':
@@ -106,9 +109,10 @@ export default class Dau {
     // 调用统计
     this.#call_stats = await this.#getDB(`call_stats`) || {}
 
-    // 新增群, 减少群 列表
-    this.#group_increase = await this.#getDB(`group_increase`) || []
-    this.#group_decrease = await this.#getDB(`group_decrease`) || []
+    // 新增群, 减少群, 新增用户 列表
+    this.#group_increase = await this.#getDB(`group_increase`) || {}
+    this.#group_decrease = await this.#getDB(`group_decrease`) || {}
+    this.#user_increase = await this.#getDB(`user_increase`) || {}
 
     // 定时任务
     this.#job = this.#setScheduleJob()
@@ -301,7 +305,7 @@ export default class Dau {
           this.#getProp(type)[data.group_id] = 0
         }
         this.#getProp(type)[data.group_id]++
-        this.#setDB(type, this[type], 2)
+        this.#setDB(type, this.#getProp(type), 2)
         break
     }
     await this.#setDB('dau_stats', this.#stats)
@@ -318,12 +322,14 @@ export default class Dau {
   }
 
   async #setUserOrGroupStats (user_id, group_id) {
-    const user = this.#today_user_data.user
-    if (!user[user_id]) {
-      user[user_id] = 0
-      this.#stats.user_count++
+    if (user_id) {
+      const user = this.#today_user_data.user
+      if (!user[user_id]) {
+        user[user_id] = 0
+        this.#stats.user_count++
+      }
+      user[user_id]++
     }
-    user[user_id]++
 
     if (group_id) {
       const group = this.#today_user_data.group
