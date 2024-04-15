@@ -18,13 +18,13 @@ import {
   splitMarkDownTemplate
 } from './Model/index.js'
 
-const startTime = new Date();
+const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
 const userIdCache = {}
 const DAU = {}
 const markdown_template = await importJS('Model/markdownTemplate.js', 'default')
-const TmplPkg = await importJS('Model/templates/index.js')
+const TmplPkg = await importJS('templates/index.js')
 
 let { config, configSave } = await makeConfig('QQBot', {
   tips: '',
@@ -1445,13 +1445,13 @@ const adapter = new class QQBotAdapter {
       sdk: new QQBot(opts),
       login () {
         return new Promise(resolve => {
-          this.sdk.sessionManager.once("READY", resolve)
+          this.sdk.sessionManager.once('READY', resolve)
           this.sdk.start()
         })
       },
       logout () {
         return new Promise(resolve => {
-          this.sdk.ws.once("close", resolve)
+          this.sdk.ws.once('close', resolve)
           this.sdk.stop()
         })
       },
@@ -1780,5 +1780,5 @@ export class QQBotAdapter extends plugin {
   }
 }
 
-const endTime = new Date();
+const endTime = new Date()
 logger.info(logger.green(`- QQBot 适配器插件 加载完成! 耗时：${endTime - startTime}ms`))
