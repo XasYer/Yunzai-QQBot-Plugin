@@ -21,7 +21,7 @@ function getTime (day = 0) {
  */
 async function importJS (path, funcOrVarName) {
   try {
-    const module = await import('file://' + join(process.cwd(), 'plugins', 'QQBot-Plugin', path))
+    const module = await import('file:///' + join(process.cwd(), 'plugins', 'QQBot-Plugin', path))
     return funcOrVarName ? module[funcOrVarName] : module
   } catch (error) {
     return false
