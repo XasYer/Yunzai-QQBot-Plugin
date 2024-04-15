@@ -23,8 +23,8 @@ logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
 const userIdCache = {}
 const DAU = {}
-const markdown_template = await importJS('model/markdownTemplate.js', 'default')
-const TmplPkg = await importJS('model/templates/index.js')
+const markdown_template = await importJS('Model/markdownTemplate.js', 'default')
+const TmplPkg = await importJS('Model/templates/index.js')
 
 let { config, configSave } = await makeConfig('QQBot', {
   tips: '',
