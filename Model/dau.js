@@ -95,24 +95,7 @@ export default class Dau {
     this.db = new Level(path)
     await this.db.open()
 
-    // 时间
-    this.#today = getTime()
-    this.#yesterday = getTime(-1)
-
-    // 用户和群统计
-    this.#today_user_data = await this.#getDB(`user_group_stats`) || { user: {}, group: {} }
-    this.#yestoday_user_data = await this.#getDB(`user_group_stats`, this.#yesterday) || { user: {}, group: {} }
-
-    // DAU统计
-    this.#stats = await this.#getDB(`dau_stats`) || this.#initStats()
-
-    // 调用统计
-    this.#call_stats = await this.#getDB(`call_stats`) || {}
-
-    // 新增群, 减少群, 新增用户 列表
-    this.#group_increase = await this.#getDB(`group_increase`) || {}
-    this.#group_decrease = await this.#getDB(`group_decrease`) || {}
-    this.#user_increase = await this.#getDB(`user_increase`) || {}
+    await this.#initData()
 
     // 定时任务
     this.#job = this.#setScheduleJob()
@@ -206,7 +189,7 @@ export default class Dau {
   }
 
   #setScheduleJob () {
-    return schedule.scheduleJob('0 0 0 * * ?', () => {
+    return schedule.scheduleJob('0 0 0 * * ?', async () => {
       const yesMonth = moment().subtract(1, 'd').format('YYYY-MM')
       this.#today = getTime()
       this.#yesterday = getTime(-1)
@@ -215,8 +198,9 @@ export default class Dau {
       try {
         const data = this.#stats
         data.time = this.#yesterday
-        this.#stats = this.#initStats()
-        this.#call_stats = {}
+
+        await this.#initData()
+
         if (!fs.existsSync(join(path, this.self_id))) fs.mkdirSync(join(path, this.self_id))
         const filePath = join(path, this.self_id, `${yesMonth}.json`)
         const file = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : []
@@ -266,10 +250,28 @@ export default class Dau {
     return data
   }
 
-  #initStats () {
-    const stats = {}
-    _.each(dauAttr, (v, k) => stats[k] = 0)
-    return stats
+  async #initData () {
+    // 时间
+    this.#today = getTime()
+    this.#yesterday = getTime(-1)
+
+    // 用户和群统计
+    this.#today_user_data = await this.#getDB(`user_group_stats`) || { user: {}, group: {} }
+    this.#yestoday_user_data = await this.#getDB(`user_group_stats`, this.#yesterday) || { user: {}, group: {} }
+
+    // DAU统计
+    this.#stats = await this.#getDB(`dau_stats`) || _.reduce(_.keys(dauAttr), (acc, key) => {
+      acc[key] = 0
+      return acc
+    }, {})
+
+    // 调用统计
+    this.#call_stats = await this.#getDB(`call_stats`) || {}
+
+    // 新增群, 减少群, 新增用户 列表
+    this.#group_increase = await this.#getDB(`group_increase`) || {}
+    this.#group_decrease = await this.#getDB(`group_decrease`) || {}
+    this.#user_increase = await this.#getDB(`user_increase`) || {}
   }
 
   #toDauMsg (data, num = 0) {
