@@ -359,8 +359,8 @@ export default class Dau {
    * @param {'send_msg'|'receive_msg'|'group_increase'|'group_decrease'} type
    */
   async setDau (type, data) {
-    const user_id = data.user_id.replace?.(this.self_id + this.sep, '')
-    const group_id = data.group_id.replace?.(this.self_id + this.sep, '')
+    const user_id = data.user_id?.replace?.(this.self_id + this.sep, '')
+    const group_id = data.group_id?.replace?.(this.self_id + this.sep, '')
     const key = `${type}_count`
     switch (type) {
       case 'send_msg':
@@ -394,7 +394,7 @@ export default class Dau {
     this.#message_id_cache[message_id] = setTimeout(() => {
       delete this.#message_id_cache[message_id]
     }, 60 * 5 * 1000)
-    
+
     if (group_id) {
       if (!this.#all_group[group_id]) {
         this.#all_group.total++
