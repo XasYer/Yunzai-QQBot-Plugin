@@ -1495,7 +1495,7 @@ const adapter = new class QQBotAdapter {
 
     Bot.makeLog('mark', `${this.name}(${this.id}) ${this.version} 已连接`, id)
     Bot.em(`connect.${id}`, { self_id: id })
-    DAU[id] = new Dau(id)
+    DAU[id] = new Dau(id, this.sep)
     await DAU[id].init()
     return true
   }

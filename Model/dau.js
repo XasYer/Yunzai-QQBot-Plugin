@@ -37,8 +37,9 @@ const _path = process.cwd()
 
 export default class Dau {
 
-  constructor (self_id) {
+  constructor (self_id, sep) {
     this.self_id = String(self_id)
+    this.sep = sep
   }
 
   #stats
@@ -52,10 +53,25 @@ export default class Dau {
   #yesterday
   #today_user_data
   #yestoday_user_data
+  /**
+   * 所有用户
+   * @type {{total: number, [key:string] : {receive_msg_count: number, send_msg_count: number, call_stats: {total: number,[key:string]: number}}}
+   */
+  #all_user
+  /**
+   * 所有群聊
+   * @type {{total: number, [key:string] : {receive_msg_count: number, send_msg_count: number, call_stats: {total: number,[key:string]: number}}}}
+   */
+  #all_group
+  /**
+   * 所有群员
+   * @type {{[key:string] : {total: number, [key:string] : {receive_msg_count: number, send_msg_count: number, call_stats: {total: number,[key:string]: number}}}}}
+   */
+  #all_group_member
 
   /**
    * 动态读取参数
-   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'|'#user_increase'} key 
+   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'|'#user_increase'|'all_user'|'all_group'|'all_group_member'} key 
    */
   #getProp (key) {
     switch (key) {
@@ -81,6 +97,12 @@ export default class Dau {
         return this.#yestoday_user_data
       case 'job':
         return this.#job
+      case 'all_user':
+        return this.#all_user
+      case 'all_group':
+        return this.#all_group
+      case 'all_group_member':
+        return this.#all_group_member
       default:
         return {}
     }
@@ -272,6 +294,11 @@ export default class Dau {
     this.#group_increase = await this.#getDB(`group_increase`) || {}
     this.#group_decrease = await this.#getDB(`group_decrease`) || {}
     this.#user_increase = await this.#getDB(`user_increase`) || {}
+
+    // 所有用户, 群聊, 群员统计
+    this.#all_user = await this.#getDB(`all_user`, null) || { total: 0 }
+    this.#all_group = await this.#getDB(`all_group`, null) || { total: 0 }
+    this.#all_group_member = await this.#getDB(`all_group_member`, null) || {}
   }
 
   #toDauMsg (data, num = 0) {
@@ -290,37 +317,104 @@ export default class Dau {
    * @param {'send_msg'|'receive_msg'|'group_increase'|'group_decrease'} type
    */
   async setDau (type, data) {
+    const user_id = data.user_id.replace?.(this.self_id + this.sep, '')
+    const group_id = data.group_id.replace?.(this.self_id + this.sep, '')
     const key = `${type}_count`
     switch (type) {
       case 'send_msg':
         this.#stats[key]++
-        await this.#setLogFnc(data)
+        await this.#setLogFnc(user_id, group_id, data.logFnc, data.message_id)
         break
       case 'receive_msg':
         this.#stats[key]++
-        await this.#setUserOrGroupStats(data.user_id, data.group_id)
+        await this.#setUserOrGroupStats(user_id, group_id)
         break
       case 'group_increase':
       case 'group_decrease':
-        if (!this.#getProp(type)[data.group_id]) {
+        if (!this.#getProp(type)[group_id]) {
           this.#stats[key]++
-          this.#getProp(type)[data.group_id] = 0
+          this.#getProp(type)[group_id] = 0
         }
-        this.#getProp(type)[data.group_id]++
+        this.#getProp(type)[group_id]++
         this.#setDB(type, this.#getProp(type), 2)
         break
     }
     await this.#setDB('dau_stats', this.#stats)
   }
 
-  async  #setLogFnc (e) {
-    if (this.#message_id_cache[e.message_id]) return
-    if (!this.#call_stats[e.logFnc]) this.#call_stats[e.logFnc] = 0
-    this.#call_stats[e.logFnc]++
+  async #setLogFnc (user_id, group_id, logFnc, message_id) {
+    if (!logFnc) return
+    // 每个消息只记录一次
+    if (this.#message_id_cache[message_id]) return
+    if (!this.#call_stats[logFnc]) this.#call_stats[logFnc] = 0
+    this.#call_stats[logFnc]++
     await this.#setDB('call_stats', this.#call_stats, 2)
-    this.#message_id_cache[e.message_id] = setTimeout(() => {
-      delete this.#message_id_cache[e.message_id]
+    this.#message_id_cache[message_id] = setTimeout(() => {
+      delete this.#message_id_cache[message_id]
     }, 60 * 5 * 1000)
+    if (group_id) {
+      if (!this.#all_group[group_id]) {
+        this.#all_group.total++
+        this.#all_group[group_id] = {
+          receive_msg_count: 0,
+          send_msg_count: 0,
+          call_stats: {
+            total: 0
+          }
+        }
+      }
+      if (!this.#all_group[group_id].call_stats[logFnc]) {
+        this.#all_group[group_id].call_stats.total++
+        this.#all_group[group_id].call_stats[logFnc] = 0
+      }
+      this.#all_group[group_id].send_msg_count++
+      this.#all_group[group_id].call_stats[logFnc]++
+      await this.#setDB('all_group', this.#all_group, 0)
+    }
+
+    if (user_id) {
+      if (!this.#all_user[user_id]) {
+        this.#all_user[user_id] = {
+          receive_msg_count: 0,
+          send_msg_count: 0,
+          call_stats: {
+            total: 0
+          }
+        }
+      }
+      if (!this.#all_user[user_id].call_stats[logFnc]) {
+        this.#all_user[user_id].call_stats.total++
+        this.#all_user[user_id].call_stats[logFnc] = 0
+      }
+      this.#all_user[user_id].send_msg_count++
+      this.#all_user[user_id].call_stats[logFnc]++
+      await this.#setDB('all_user', this.#all_user, 0)
+    }
+
+    if (group_id && user_id) {
+      if (!this.#all_group_member[group_id]) {
+        this.#all_group_member[group_id] = {
+          total: 0
+        }
+      }
+      if (!this.#all_group_member[group_id][user_id]) {
+        this.#all_group_member[group_id].total++
+        this.#all_group_member[group_id][user_id] = {
+          receive_msg_count: 0,
+          send_msg_count: 0,
+          call_stats: {
+            total: 0
+          }
+        }
+      }
+      if (!this.#all_group_member[group_id][user_id].call_stats[logFnc]) {
+        this.#all_group_member[group_id][user_id].call_stats.total++
+        this.#all_group_member[group_id][user_id].call_stats[logFnc] = 0
+      }
+      this.#all_group_member[group_id][user_id].send_msg_count++
+      this.#all_group_member[group_id][user_id].call_stats[logFnc]++
+      await this.#setDB('all_group_member', this.#all_group_member, 0)
+    }
   }
 
   async #setUserOrGroupStats (user_id, group_id) {
@@ -331,6 +425,18 @@ export default class Dau {
         this.#stats.user_count++
       }
       user[user_id]++
+
+      if (!this.#all_user[user_id]) {
+        this.#all_user[user_id] = {
+          receive_msg_count: 0,
+          send_msg_count: 0,
+          call_stats: {
+            total: 0
+          }
+        }
+      }
+      this.#all_user[user_id].receive_msg_count++
+      await this.#setDB('all_user', this.#all_user, 0)
     }
 
     if (group_id) {
@@ -340,13 +446,45 @@ export default class Dau {
         this.#stats.group_count++
       }
       group[group_id]++
+
+      if (!this.#all_group[group_id]) {
+        this.#all_group[group_id] = {
+          receive_msg_count: 0,
+          send_msg_count: 0,
+          call_stats: {
+            total: 0
+          }
+        }
+      }
+      this.#all_group[group_id].receive_msg_count++
+      await this.#setDB('all_group', this.#all_group, 0)
+    }
+
+    if (user_id && group_id) {
+      if (!this.#all_group_member[group_id]) {
+        this.#all_group_member[group_id] = {
+          total: 0
+        }
+      }
+      if (!this.#all_group_member[group_id][user_id]) {
+        this.#all_group_member[group_id].total++
+        this.#all_group_member[group_id][user_id] = {
+          receive_msg_count: 0,
+          send_msg_count: 0,
+          call_stats: {
+            total: 0
+          }
+        }
+      }
+      this.#all_group_member[group_id][user_id].receive_msg_count++
+      await this.#setDB('all_group_member', this.#all_group_member, 0)
     }
 
     await this.#setDB(`user_group_stats`, this.#today_user_data, 2)
   }
 
   async #getDB (key, date = this.#today) {
-    return await this.db.get(`${key}:${date}`)
+    return await this.db.get(`${key}${date ? `:${date}` : ''}`)
   }
 
   /**
@@ -355,6 +493,6 @@ export default class Dau {
    * @param {*} data
    */
   async #setDB (key, data, time = 1, date = this.#today) {
-    await this.db.set(`${key}:${date}`, data, time)
+    await this.db.set(`${key}${time ? `:${date}` : ''}`, data, time)
   }
 }
