@@ -1556,10 +1556,10 @@ export class QQBotAdapter extends plugin {
           reg: '^#[Qq]+[Bb]ot调用统计$',
           fnc: 'callStat',
           permission: config.permission
-          // }, {
-          //   reg: '^#[Qq]+[Bb]ot用户统计$',
-          //   fnc: 'userStat',
-          //   permission: config.permission
+          }, {
+            reg: '^#[Qq]+[Bb]ot用户统计$',
+            fnc: 'userStat',
+            permission: config.permission
         }, {
           reg: '^#[Qq]+[Bb]ot绑定用户.+$',
           fnc: 'BindUser'
@@ -1663,18 +1663,13 @@ export class QQBotAdapter extends plugin {
     if (msg.length) this.reply(msg, true)
   }
 
-  // async userStat () {
-  //   if (!config.userStats || !userStats[this.e.self_id]) return false
-  //   const info = userStats[this.e.self_id]
-  //   const stats = info[info.today].stats
-  //   this.reply([[
-  //     info.today,
-  //     '相较于昨日',
-  //     `新增用户: ${stats.increase_user_count}`,
-  //     `减少用户: ${stats.decrease_user_count}`,
-  //     `相同用户: ${stats.invariant_user_count}`
-  //   ].join('\n'), toButton(this.e.user_id)])
-  // }
+  async userStat () {
+    if (!config.userStats) return false
+    const dau = DAU[this.e.self_id]
+    if (!dau) return false
+    const msg = dau.getUserStatsMsg(this.e)
+    if (msg.length) this.reply(msg, true)
+  }
 
   // 自欺欺人大法
   async filterLog () {

@@ -45,11 +45,34 @@ export default class Dau {
   #stats
   #message_id_cache = {}
   #call_stats
+  /**
+   * 今日新增群
+   * @type {{[key:string]:number}}
+   */
   #group_increase
+  /**
+   * 今日减少群
+   * @type {{[key:string]:number}}
+   */
   #group_decrease
+  /**
+   * 今日新增用户
+   * @type {Array<string>}
+   */
   #user_increase
+  /**
+   * 定时任务
+   */
   #job
+  /**
+   * 今天的日期
+   * @type {string}
+   */
   #today
+  /**
+   * 昨天的日期
+   * @type {string}
+   */
   #yesterday
   #today_user_data
   #yestoday_user_data
@@ -162,8 +185,7 @@ export default class Dau {
 
     if (pro) {
       if (!fs.existsSync(path)) return false
-      let daus = fs.readdirSync(path)
-
+      let daus = fs.readdirSync(path)//.reverse().slice(0, 2)
       if (_.isEmpty(daus)) return false
       let data = _.fromPairs(daus.map(v => [v.replace('.json', ''), JSON.parse(fs.readFileSync(`${path}/${v}`))]))
       data = this.#monthlyDau(data)
@@ -171,6 +193,7 @@ export default class Dau {
       totalDAU.days = days
       let renderdata = {
         daus: JSON.stringify(data),
+        // call_stats: JSON.stringify(this.#call_stats),
         totalDAU,
         todayDAU: this.#stats,
         monthly: _.keys(data).reverse(),
@@ -200,13 +223,32 @@ export default class Dau {
     return [msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), this.#getButton(e.user_id)]
   }
 
+  getUserStatsMsg (e) {
+    const user_decrease_count = _.difference(_.keys(this.#yestoday_user_data.user), _.keys(this.#today_user_data.user)).length
+    const yesterday_user_count = _.size(this.#yestoday_user_data.user)
+    const msg = [
+      '总数据:',
+      '总用户量: ' + this.#all_user.total,
+      '总群聊量: ' + this.#all_group.total,
+      '',
+      this.#today,
+      '相较于昨日:',
+      `新增群数: ${_.size(this.#group_increase)}`,
+      `减少群数: ${_.size(this.#group_decrease)}`,
+      `新增用户: ${this.#user_increase.length}`,
+      `相同用户: ${yesterday_user_count - user_decrease_count}`,
+      `减少用户: ${user_decrease_count}`
+    ]
+    return [msg.join('\r'), this.#getButton(e.user_id)]
+  }
+
   #getButton (user_id) {
     return segment.button([
       { text: 'dau', callback: '#QQBotdau', permission: user_id },
       { text: 'daupro', callback: '#QQBotdaupro', permission: user_id }
     ], [
       { text: '调用统计', callback: '#QQBot调用统计', permission: user_id },
-      // { text: '用户统计', callback: '#QQBot用户统计', permission: user_id }
+      { text: '用户统计', callback: '#QQBot用户统计', permission: user_id }
     ])
   }
 
@@ -293,7 +335,7 @@ export default class Dau {
     // 新增群, 减少群, 新增用户 列表
     this.#group_increase = await this.#getDB(`group_increase`) || {}
     this.#group_decrease = await this.#getDB(`group_decrease`) || {}
-    this.#user_increase = await this.#getDB(`user_increase`) || {}
+    this.#user_increase = await this.#getDB(`user_increase`) || []
 
     // 所有用户, 群聊, 群员统计
     this.#all_user = await this.#getDB(`all_user`, null) || { total: 0 }
@@ -352,6 +394,7 @@ export default class Dau {
     this.#message_id_cache[message_id] = setTimeout(() => {
       delete this.#message_id_cache[message_id]
     }, 60 * 5 * 1000)
+    
     if (group_id) {
       if (!this.#all_group[group_id]) {
         this.#all_group.total++
@@ -374,6 +417,7 @@ export default class Dau {
 
     if (user_id) {
       if (!this.#all_user[user_id]) {
+        this.#all_user.total++
         this.#all_user[user_id] = {
           receive_msg_count: 0,
           send_msg_count: 0,
@@ -427,6 +471,8 @@ export default class Dau {
       user[user_id]++
 
       if (!this.#all_user[user_id]) {
+        this.#all_user.total++
+        this.#user_increase.push(user_id)
         this.#all_user[user_id] = {
           receive_msg_count: 0,
           send_msg_count: 0,
@@ -434,6 +480,7 @@ export default class Dau {
             total: 0
           }
         }
+        await this.#setDB('user_increase', this.#user_increase, 1)
       }
       this.#all_user[user_id].receive_msg_count++
       await this.#setDB('all_user', this.#all_user, 0)
@@ -448,6 +495,7 @@ export default class Dau {
       group[group_id]++
 
       if (!this.#all_group[group_id]) {
+        this.#all_group.total++
         this.#all_group[group_id] = {
           receive_msg_count: 0,
           send_msg_count: 0,
