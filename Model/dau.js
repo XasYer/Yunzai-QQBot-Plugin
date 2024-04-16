@@ -227,15 +227,17 @@ export default class Dau {
     const user_decrease_count = _.difference(_.keys(this.#yestoday_user_data.user), _.keys(this.#today_user_data.user)).length
     const yesterday_user_count = _.size(this.#yestoday_user_data.user)
     const msg = [
-      '总数据:',
+      '总计数据:',
       '总用户量: ' + this.#all_user.total,
       '总群聊量: ' + this.#all_group.total,
       '',
-      this.#today,
-      '相较于昨日:',
+      '新增数据:',
+      `新增用户: ${this.#user_increase.length}`,
       `新增群数: ${_.size(this.#group_increase)}`,
       `减少群数: ${_.size(this.#group_decrease)}`,
-      `新增用户: ${this.#user_increase.length}`,
+      '',
+      '今日数据:',
+      '相较昨日:',
       `相同用户: ${yesterday_user_count - user_decrease_count}`,
       `减少用户: ${user_decrease_count}`
     ]
