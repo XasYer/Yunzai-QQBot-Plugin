@@ -224,7 +224,7 @@ export default class Dau {
   }
 
   getUserStatsMsg (e) {
-    const user_decrease_count = _.difference(_.keys(this.#yestoday_user_data.user), _.keys(this.#today_user_data.user)).length
+    const user_same_count = _.intersection(_.keys(this.#today_user_data.user), _.keys(this.#yestoday_user_data.user)).length
     const yesterday_user_count = _.size(this.#yestoday_user_data.user)
     const msg = [
       '总计数据:',
@@ -236,10 +236,9 @@ export default class Dau {
       `新增群数: ${_.size(this.#group_increase)}`,
       `减少群数: ${_.size(this.#group_decrease)}`,
       '',
-      '今日数据:',
       '相较昨日:',
-      `相同用户: ${yesterday_user_count - user_decrease_count}`,
-      `减少用户: ${user_decrease_count}`
+      `相同用户: ${user_same_count}`,
+      `减少用户: ${yesterday_user_count - user_same_count}`
     ]
     return [msg.join('\r'), this.#getButton(e.user_id)]
   }
