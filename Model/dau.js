@@ -372,8 +372,13 @@ export default class Dau {
         this.#stats[key]++
         await this.#setUserOrGroupStats(user_id, group_id)
         break
-      case 'group_increase':
       case 'group_decrease':
+        delete this.#all_group[group_id]
+        this.#all_group.total--
+        delete this.#all_group_member[group_id]
+        await this.#setDB('all_group', this.#all_group, 0)
+        await this.#setDB('all_group_member', this.#all_group_member, 0)
+      case 'group_increase':
         if (!this.#getProp(type)[group_id]) {
           this.#stats[key]++
           this.#getProp(type)[group_id] = 0
