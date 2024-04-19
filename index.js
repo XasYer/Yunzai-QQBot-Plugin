@@ -88,7 +88,6 @@ const adapter = new class QQBotAdapter {
     }
 
     this.sep = config.sep || ((process.platform == 'win32') && '') || ':'
-    this.bind_user = {}
   }
 
   async makeRecord (file) {
@@ -1219,69 +1218,6 @@ const adapter = new class QQBotAdapter {
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
-  async makeBotCallback (id, event, callback) {
-    const data = {
-      raw: event,
-      bot: Bot[callback.self_id],
-      self_id: callback.self_id,
-      post_type: 'message',
-      message_id: event.notice_id,
-      message_type: callback.group_id ? 'group' : 'private',
-      sub_type: 'callback',
-      get user_id () { return this.sender.user_id },
-      sender: { user_id: `${id}${this.sep}${event.operator_id}` },
-      message: [],
-      raw_message: ''
-    }
-
-    data.message.push(
-      { type: 'at', qq: callback.self_id },
-      { type: 'text', text: callback.message }
-    )
-    data.raw_message += callback.message
-
-    if (callback.group_id) {
-      data.group_id = callback.group_id
-      data.group = data.bot.pickGroup(callback.group_id)
-      data.group_name = data.group.name
-      data.friend = Bot[id].pickFriend(data.user_id)
-      if (data.friend.real_id) {
-        data.friend = data.bot.pickFriend(data.friend.real_id)
-        data.member = data.group.pickMember(data.friend.user_id)
-        data.sender = {
-          ...await data.member.getInfo() || data.member
-        }
-      } else {
-        if (data.bot.callback[data.user_id]) return event.reply(3)
-        data.bot.callback[data.user_id] = true
-
-        let msg = `请先发送 #QQBot绑定用户${data.user_id}`
-        const real_id = callback.message.replace(/^#[Qq]+[Bb]ot绑定用户确认/, '').trim()
-        if (this.bind_user[real_id] == data.user_id) {
-          await Bot[id].fl.set(data.user_id, {
-            ...Bot[id].fl.get(data.user_id), real_id
-          })
-          msg = `绑定成功 ${data.user_id} → ${real_id}`
-        }
-        event.reply(0)
-        return data.group.sendMsg(msg)
-      }
-      Bot.makeLog('info', [`群按钮点击事件：[${data.group_name}(${data.group_id}), ${data.sender.nickname}(${data.user_id})]`, data.raw_message], data.self_id)
-    } else {
-      await Bot[id].fl.set(data.user_id, {
-        ...Bot[id].fl.get(data.user_id),
-        real_id: callback.user_id
-      })
-      data.friend = data.bot.pickFriend(callback.user_id)
-      data.sender = {
-        ...await data.friend.getInfo() || data.friend
-      }
-      Bot.makeLog('info', [`好友按钮点击事件：[${data.sender.nickname}(${data.user_id})]`, data.raw_message], data.self_id)
-    }
-    event.reply(0)
-    Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
-  }
-
   async makeCallback (id, event) {
     const reply = event.reply.bind(event)
     event.reply = async (...args) => {
@@ -1308,7 +1244,6 @@ const adapter = new class QQBotAdapter {
 
     const callback = data.bot.callback[event.data?.resolved?.button_id]
     if (callback) {
-      if (callback.self_id) { return this.makeBotCallback(id, event, callback) }
       if (!event.group_id && callback.group_id) { event.group_id = callback.group_id }
       data.message_id = callback.id
       if (callback.message_id.length) {
@@ -1532,42 +1467,48 @@ export class QQBotAdapter extends plugin {
           reg: '^#[Qq]+[Bb]ot(帮助|help)$',
           fnc: 'help',
           permission: config.permission
-        }, {
+        },
+        {
           reg: '^#[Qq]+[Bb]ot账号$',
           fnc: 'List',
           permission: config.permission
-        }, {
+        },
+        {
           reg: '^#[Qq]+[Bb]ot设置[0-9]+:[0-9]+:.+:.+:[01]:[01]$',
           fnc: 'Token',
           permission: config.permission
-        }, {
+        },
+        {
           reg: '^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?[0-9]+:',
           fnc: 'Markdown',
           permission: config.permission
-        }, {
+        },
+        {
           reg: `^#[Qq]+[Bb]ot设置(${Object.keys(setMap).join('|')})\\s*(开启|关闭)$`,
           fnc: 'Setting',
           permission: config.permission
-        }, {
+        },
+        {
           reg: '^#[Qq]+[Bb]ot[Dd][Aa][Uu]',
           fnc: 'DAUStat',
           permission: config.permission
-        }, {
+        },
+        {
           reg: '^#[Qq]+[Bb]ot调用统计$',
           fnc: 'callStat',
           permission: config.permission
-          }, {
-            reg: '^#[Qq]+[Bb]ot用户统计$',
-            fnc: 'userStat',
-            permission: config.permission
-        }, {
-          reg: '^#[Qq]+[Bb]ot绑定用户.+$',
-          fnc: 'BindUser'
-        }, {
+        },
+        {
+          reg: '^#[Qq]+[Bb]ot用户统计$',
+          fnc: 'userStat',
+          permission: config.permission
+        },
+        {
           reg: '^#[Qq]+[Bb]ot刷新co?n?fi?g$',
           fnc: 'refConfig',
           permission: config.permission
-        }, {
+        },
+        {
           reg: '^#[Qq]+[Bb]ot(添加|删除)过滤日志',
           fnc: 'filterLog',
           permission: config.permission
@@ -1757,21 +1698,6 @@ export class QQBotAdapter extends plugin {
     })
 
     return daus
-  }
-
-  BindUser () {
-    const id = this.e.msg.replace(/^#[Qq]+[Bb]ot绑定用户(确认)?/, '').trim()
-    if (id == this.e.user_id) return this.reply('请切换到对应Bot')
-
-    adapter.bind_user[this.e.user_id] = id
-    this.reply([
-      `绑定 ${id} → ${this.e.user_id}`,
-      segment.button([{
-        text: '确认绑定',
-        callback: `#QQBot绑定用户确认${this.e.user_id}`,
-        permission: this.e.user_id
-      }])
-    ])
   }
 }
 
