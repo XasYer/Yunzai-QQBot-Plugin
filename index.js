@@ -44,6 +44,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   mdSuffix: {},
   btnSuffix: {},
   filterLog: {},
+  simplifiedSdkLog: false,
   sep: '',
   // dau: {
   //   enable: true,
@@ -1421,7 +1422,20 @@ const adapter = new class QQBotAdapter {
     }
 
     Bot[id].sdk.logger = {}
-    for (const i of ['trace', 'debug', 'info', 'mark', 'warn', 'error', 'fatal']) { Bot[id].sdk.logger[i] = (...args) => Bot.makeLog(i, args, id) }
+    for (const i of ['trace', 'debug', 'info', 'mark', 'warn', 'error', 'fatal']) {
+      Bot[id].sdk.logger[i] = (...args) => {
+        if (config.simplifiedSdkLog) {
+          if (args?.[0]?.match?.(/^send to/)) {
+            args[0] = args[0].replace(/<(.+?)(,.*?)>/g, (v, k1, k2) => {
+              return `<${k1}>`
+            })
+          } else if (args?.[0]?.match?.(/^recv from/)) {
+            return
+          }
+        }
+        Bot.makeLog(i, args, id)
+      }
+    }
 
     await Bot[id].login()
 

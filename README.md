@@ -75,6 +75,7 @@ TRSS-Yunzai QQBot 适配器 插件
         - 垃圾Bot
         # ...
       ```
+13. `config/QQBot.yaml`中`simplifiedSdkLog`是否简化sdk日志,若设置为`true`则不会打印` recv from Group(xxx):  xxx`,并且会简化发送为`send to Group(xxx): <markdown><button>`
 
 ## 安装教程
 
