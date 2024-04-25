@@ -555,7 +555,14 @@ const adapter = new class QQBotAdapter {
     if (template.length > length) {
       const templates = _(template).chunk(length).map(v => this.makeMarkdownTemplate(data, v)).value()
       messages.push(...templates)
-    } else if (template.length) messages.push(this.makeMarkdownTemplate(data, template))
+    } else if (template.length) {
+      const tmp = this.makeMarkdownTemplate(data, template)
+      if (tmp.length > 1) {
+        messages.push(...tmp.map(i => ([i])))
+      } else {
+        messages.push(tmp)
+      }
+    }
 
     if (template.length && button.length < 5 && config.btnSuffix[data.self_id]) {
       let { position, values } = config.btnSuffix[data.self_id]
