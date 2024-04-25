@@ -38,13 +38,16 @@ TRSS-Yunzai QQBot 适配器 插件
       }
       ```
 8. `#QQBot调用统计` 根据`e.reply()`发送的消息进行统计,每条消息仅统计一次,未做持久化处理,默认关闭,`#QQBot设置调用统计开启`
-9. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以MD的模式`自动加入`消息最后`
+9. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以MD的模式`自动加入`params`中
     ```yml
     mdSuffix:
       BotQQ:
-          - key: key
+          - key: key1
             values:
               - value # 如果用到了key则不会添加
+          - key: key2
+            values:
+              - "{{ e.msg.replace(/^#/g, '\/') }}" # {{}}中为动态参数,会在发送时替换成对应值,目前仅有e可用,也可以传入js表达式等等, 后续可能会添加自定义方法
           # ...
     ```
 10. `config/QQBot.yaml`中使用以下配置项,在`全局MD`时会`以button的模式`自动加入`按钮指定行数并独占一行`,当`超过`5排按钮时`不会添加`

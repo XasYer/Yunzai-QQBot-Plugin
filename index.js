@@ -15,7 +15,8 @@ import {
   Runtime,
   Handler,
   makeConfig,
-  splitMarkDownTemplate
+  splitMarkDownTemplate,
+  getMustacheTemplating
 } from './Model/index.js'
 
 const startTime = new Date()
@@ -407,7 +408,10 @@ const adapter = new class QQBotAdapter {
 
     if (config.mdSuffix?.[data.self_id]) {
       if (!params.some(p => config.mdSuffix[data.self_id].some(c => (c.key === p.key && p.values[0] !== '\u200B')))) {
-        params.push(...config.mdSuffix[data.self_id])
+        for (const i of config.mdSuffix[data.self_id]) {
+          const value = getMustacheTemplating(i.values[0], { e: data })
+          params.push({ key: i.key, values: [value] })
+        }
       }
     }
 

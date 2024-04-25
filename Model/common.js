@@ -54,8 +54,18 @@ function splitMarkDownTemplate (text) {
   return text.split(rand)
 }
 
+function getMustacheTemplating (template, context) {
+  const func = new Function('context', `
+    with(context) {
+      return \`${template.replace(/\{\{([^}]+)\}\}/g, '\${$1}')}\`;
+    }
+  `)
+  return func(context).replace(/\n/g, '\r');
+}
+
 export {
   getTime,
   importJS,
-  splitMarkDownTemplate
+  splitMarkDownTemplate,
+  getMustacheTemplating
 }
