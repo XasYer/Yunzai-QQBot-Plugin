@@ -409,6 +409,9 @@ const adapter = new class QQBotAdapter {
     if (config.mdSuffix?.[data.self_id]) {
       if (!params.some(p => config.mdSuffix[data.self_id].some(c => (c.key === p.key && p.values[0] !== '\u200B')))) {
         for (const i of config.mdSuffix[data.self_id]) {
+          data.group = data.bot.pickGroup(data.group_id)
+          data.friend = data.bot.pickFriend(data.user_id)
+          data.member = data.bot.pickMember(data.group_id, data.user_id)
           const value = getMustacheTemplating(i.values[0], { e: data })
           params.push({ key: i.key, values: [value] })
         }
