@@ -30,11 +30,9 @@ TRSS-Yunzai QQBot 适配器 插件
     - 方法2: 在`Model`目录下新建`markdownTemplate.js`文件,写入以下内容 **(不推荐)**
       ```js
       // params为数组,每一项为{key:string,values: ['\u200B']} // values固定为['\u200B']
-      // split: 是否将md参数分割 比如 ![图片](链接) 会分成两个参数 ![图片] 和 (链接)
       export defalut {
         custom_template_id: '',
-        params: [],
-        split: true
+        params: []
       }
       ```
 8. `#QQBot调用统计` 根据`e.reply()`发送的消息进行统计,每条消息仅统计一次,未做持久化处理,默认关闭,`#QQBot设置调用统计开启`

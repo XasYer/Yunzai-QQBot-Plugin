@@ -366,12 +366,12 @@ const adapter = new class QQBotAdapter {
   }
 
   makeMarkdownTemplate (data, template) {
-    let keys; let custom_template_id; let params = []; let index = 0
+    let keys, custom_template_id, params = [], index = 0, type = 0
     const result = []
     if (markdown_template) {
       custom_template_id = markdown_template.custom_template_id
       params = _.cloneDeep(markdown_template.params)
-      index = 1
+      type = 1
     } else {
       const custom = config.customMD?.[data.self_id]
       custom_template_id = custom?.custom_template_id || config.markdown[data.self_id]
@@ -379,30 +379,28 @@ const adapter = new class QQBotAdapter {
     }
     for (const temp of template) {
       if (!temp.length) continue
-      if (index) {
-        if (index - 1 == markdown_template.params.length) {
+
+      for (const i of splitMarkDownTemplate(temp)) {
+
+        if (index == (type == 1 ? markdown_template.params.length : keys.length)) {
           result.push({
             type: 'markdown',
             custom_template_id,
             params: _.cloneDeep(params)
           })
-          params = _.cloneDeep(markdown_template.params)
-          index = 1
+          params = type == 1 ? _.cloneDeep(markdown_template.params) : []
+          index = 0
         }
-        if (markdown_template.split === true) {
-          for (const i of splitMarkDownTemplate(temp)) {
-            params[index - 1].values = [i]
-            index++
-          }
+
+        if (type == 1) {
+          params[index].values = [i];
         } else {
-          params[index - 1].values = [temp]
-          index++
+          params.push({
+            key: keys[index],
+            values: [i]
+          })
         }
-      } else {
-        params.push({
-          key: keys.shift(),
-          values: [temp]
-        })
+        index++
       }
     }
 
@@ -1402,7 +1400,7 @@ const adapter = new class QQBotAdapter {
       uin: id,
       info: { id, ...opts },
       get nickname () { return this.sdk.nickname },
-      get avatar () { return `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}` },
+      get avatar () { return `https://q.qlogo.cn/g?b=qq&s=0&nk=${id}` },
 
       version: {
         id: this.id,
