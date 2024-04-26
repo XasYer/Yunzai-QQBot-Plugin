@@ -1316,7 +1316,8 @@ const adapter = new class QQBotAdapter {
       notice_type: event.notice_type,
       sub_type: event.sub_type,
       notice_id: event.notice_id,
-      group_id: event.group_id
+      group_id: event.group_id,
+      user_id: event.user_id || event.operator_id
     }
 
     switch (data.sub_type) {
@@ -1330,7 +1331,7 @@ const adapter = new class QQBotAdapter {
             import(`file://${path}`).then(i => i.default).then(async i => {
               let msg
               if (typeof i === 'function') {
-                msg = await i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${event.user_id || event.operator_id}`, data.self_id)
+                msg = await i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${data.user_id}`, data.self_id)
               } else {
                 msg = i
               }
