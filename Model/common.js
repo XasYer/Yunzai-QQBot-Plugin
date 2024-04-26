@@ -7,10 +7,10 @@ import { randomUUID } from 'node:crypto'
  * @returns yyyy-mm-dd
  */
 function getTime (day = 0) {
-  const now = new Date();
-  now.setHours(now.getHours() + 8);
-  if (day != 0) now.setDate(now.getDate() + day);
-  return now.toISOString().split('T').shift();
+  const now = new Date()
+  now.setHours(now.getHours() + 8)
+  if (day != 0) now.setDate(now.getDate() + day)
+  return now.toISOString().split('T').shift()
 }
 
 /**
@@ -38,7 +38,7 @@ function splitMarkDownTemplate (text) {
   const regexList = [
     /(!?\[.*?\])(\s*\(.*?\))/,
     /(\[.*?\])(\[.*?\])/,
-    /(\*)([^\*]+?\*)()/,
+    /(\*)([^*]+?\*)()/,
     /(`)([^`]+?`)()/,
     /(_)([^_]*?_)()/,
     /(~)(~)/,
@@ -55,12 +55,18 @@ function splitMarkDownTemplate (text) {
 }
 
 function getMustacheTemplating (template, context) {
-  const func = new Function('context', `
-    with(context) {
-      return \`${template.replace(/\{\{([^}]+)\}\}/g, '\${$1}')}\`;
-    }
-  `)
-  return func(context).replace(/\n/g, '\r');
+  try {
+    // eslint-disable-next-line no-new-func
+    const func = new Function('context', `
+      with(context) {
+        return \`${template.replace(/\{\{([^}]+)\}\}/g, '${$1}')}\`;
+      }
+    `)
+    return func(context).replace(/\n/g, '\r')
+  } catch (error) {
+    logger.error(`getMustacheTemplating error: ${error}`)
+    return ''
+  }
 }
 
 export {

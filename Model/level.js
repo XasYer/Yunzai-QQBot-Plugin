@@ -4,17 +4,17 @@ import schedule from 'node-schedule'
 
 export default class level {
   constructor (path) {
-    this.db = new Level(path, { valueEncoding: "json" })
+    this.db = new Level(path, { valueEncoding: 'json' })
     this.setSchedule()
   }
 
   async cleanup () {
-    const today = getTime();
+    const today = getTime()
 
     for await (const [key, value] of this.db.iterator()) {
       try {
         if (value.expiredTime && new Date(value.expiredTime) < new Date(today)) {
-          await this.db.del(key);
+          await this.db.del(key)
         }
       } catch (error) { }
     }
@@ -23,8 +23,8 @@ export default class level {
   setSchedule () {
     // 每天00:00删除所有过期的key
     this.job = schedule.scheduleJob('0 0 0 * * ?', async () => {
-      await this.cleanup();
-    });
+      await this.cleanup()
+    })
   }
 
   async open () {
@@ -34,10 +34,10 @@ export default class level {
 
   /**
    * 存储一个值
-   * @param {string} key 
-   * @param {any} value 
+   * @param {string} key
+   * @param {any} value
    * @param {number} time 几天之后过期(包含今天),为0时不会过期
-   * @returns 
+   * @returns
    */
   async set (key, value, time = 0) {
     if (!value) return
@@ -60,7 +60,7 @@ export default class level {
 
   async get (key) {
     try {
-      let value = await this.db.get(key);
+      let value = await this.db.get(key)
       // const expiredTime = value.expiredTime;
       // 检查是否需要转换回原始类型
       if (value.__originalValue) {
@@ -73,21 +73,21 @@ export default class level {
         //     return null;
         // }
         // 过期时间不返回
-        delete value.expiredTime;
+        delete value.expiredTime
       }
-      return value;
+      return value
     } catch (err) {
       // 不存在key
       if (err.notFound) {
-        return null;
+        return null
       }
       // 其他错误
-      logger.error('[QQBot-Plugin] level', err);
-      return null;
+      logger.error('[QQBot-Plugin] level', err)
+      return null
     }
   }
 
   close () {
-    this.db.close();
+    this.db.close()
   }
 }

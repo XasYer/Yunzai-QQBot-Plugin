@@ -1,7 +1,3 @@
-/* eslint-disable no-ex-assign */
-/* eslint-disable no-fallthrough */
-/* eslint-disable no-useless-escape */
-/* eslint-disable camelcase */
 import _ from 'lodash'
 import YAML from 'yaml'
 import fs from 'node:fs'
@@ -88,7 +84,7 @@ const adapter = new class QQBotAdapter {
     this.version = 'qq-group-bot v11.45.14'
 
     if (typeof config.toQRCode == 'boolean') {
-      this.toQRCodeRegExp = config.toQRCode ? /https?:\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?/g : false
+      this.toQRCodeRegExp = config.toQRCode ? /https?:\/\/[-\w_]+(\.[-\w_]+)+([-\w.,@?^=%&:/~+#]*[-\w@?^=%&/~+#])?/g : false
     } else {
       this.toQRCodeRegExp = new RegExp(config.toQRCode, 'g')
     }
@@ -469,7 +465,7 @@ const adapter = new class QQBotAdapter {
           break
         case 'node':
           if (Handler.has('ws.tool.toImg') && config.toImg) {
-            function getButton (data) {
+            const getButton = data => {
               return data.flatMap(item => {
                 if (Array.isArray(item.message)) {
                   return item.message.flatMap(msg => {
@@ -733,10 +729,6 @@ const adapter = new class QQBotAdapter {
           if (ret.id) rets.message_id.push(ret.id)
           DAU[data.self_id].setDau('send_msg', data)
         } catch (err) {
-          if (err.response?.data) {
-            const trace_id = err.response.headers?.['x-tps-trace-id'] || err.trace_id
-            err = { ...err.response.data, trace_id }
-          }
           // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
           logger.error(data.self_id, '发送消息错误', i, err)
           rets.error.push(err)

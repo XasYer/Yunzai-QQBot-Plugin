@@ -14,13 +14,13 @@ const dauAttr = {
   user_count: '上行消息人数',
   group_count: '上行消息群数',
   group_increase_count: '新增群数',
-  group_decrease_count: '减少群数',
+  group_decrease_count: '减少群数'
 }
 
 // 兼容一下旧数据
 const oldAttr = {
   receive_msg_count: 'msg_count',
-  send_msg_count: 'send_count',
+  send_msg_count: 'send_count'
 }
 
 const numToChinese = {
@@ -36,7 +36,6 @@ const numToChinese = {
 const _path = process.cwd()
 
 export default class Dau {
-
   constructor (self_id, sep) {
     this.self_id = String(self_id)
     this.sep = sep
@@ -94,7 +93,7 @@ export default class Dau {
 
   /**
    * 动态读取参数
-   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'|'#user_increase'|'all_user'|'all_group'|'all_group_member'} key 
+   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'|'#user_increase'|'all_user'|'all_group'|'all_group_member'} key
    */
   #getProp (key) {
     switch (key) {
@@ -148,8 +147,8 @@ export default class Dau {
 
   /**
    * dau统计
-   * @param {*} pro 
-   * @returns 
+   * @param {*} pro
+   * @returns
    */
   async getDauStatsMsg (e, pro) {
     let msg = [this.#today, ...this.#toDauMsg(this.#stats, 6), '']
@@ -185,7 +184,7 @@ export default class Dau {
 
     if (pro) {
       if (!fs.existsSync(path)) return false
-      let daus = fs.readdirSync(path)//.reverse().slice(0, 2)
+      let daus = fs.readdirSync(path)// .reverse().slice(0, 2)
       if (_.isEmpty(daus)) return false
       let data = _.fromPairs(daus.map(v => [v.replace('.json', ''), JSON.parse(fs.readFileSync(`${path}/${v}`))]))
       data = this.#monthlyDau(data)
@@ -279,7 +278,7 @@ export default class Dau {
 
   /**
    * 兼容旧数据 三十天后删除 2024年4月11日
-   * @param {*} data 
+   * @param {*} data
    */
   #mergeOldDau (data) {
     for (const k in oldAttr) {
@@ -321,27 +320,27 @@ export default class Dau {
     this.#yesterday = getTime(-1)
 
     // 用户和群统计
-    this.#today_user_data = await this.#getDB(`user_group_stats`) || { user: {}, group: {} }
-    this.#yestoday_user_data = await this.#getDB(`user_group_stats`, this.#yesterday) || { user: {}, group: {} }
+    this.#today_user_data = await this.#getDB('user_group_stats') || { user: {}, group: {} }
+    this.#yestoday_user_data = await this.#getDB('user_group_stats', this.#yesterday) || { user: {}, group: {} }
 
     // DAU统计
-    this.#stats = await this.#getDB(`dau_stats`) || _.reduce(_.keys(dauAttr), (acc, key) => {
+    this.#stats = await this.#getDB('dau_stats') || _.reduce(_.keys(dauAttr), (acc, key) => {
       acc[key] = 0
       return acc
     }, {})
 
     // 调用统计
-    this.#call_stats = await this.#getDB(`call_stats`) || {}
+    this.#call_stats = await this.#getDB('call_stats') || {}
 
     // 新增群, 减少群, 新增用户 列表
-    this.#group_increase = await this.#getDB(`group_increase`) || {}
-    this.#group_decrease = await this.#getDB(`group_decrease`) || {}
-    this.#user_increase = await this.#getDB(`user_increase`) || []
+    this.#group_increase = await this.#getDB('group_increase') || {}
+    this.#group_decrease = await this.#getDB('group_decrease') || {}
+    this.#user_increase = await this.#getDB('user_increase') || []
 
     // 所有用户, 群聊, 群员统计
-    this.#all_user = await this.#getDB(`all_user`, null) || { total: 0 }
-    this.#all_group = await this.#getDB(`all_group`, null) || { total: 0 }
-    this.#all_group_member = await this.#getDB(`all_group_member`, null) || {}
+    this.#all_user = await this.#getDB('all_user', null) || { total: 0 }
+    this.#all_group = await this.#getDB('all_group', null) || { total: 0 }
+    this.#all_group_member = await this.#getDB('all_group_member', null) || {}
   }
 
   #toDauMsg (data, num = 0) {
@@ -534,7 +533,7 @@ export default class Dau {
       await this.#setDB('all_group_member', this.#all_group_member, 0)
     }
 
-    await this.#setDB(`user_group_stats`, this.#today_user_data, 2)
+    await this.#setDB('user_group_stats', this.#today_user_data, 2)
   }
 
   async #getDB (key, date = this.#today) {
