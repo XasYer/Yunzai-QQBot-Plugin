@@ -1,3 +1,7 @@
+/* eslint-disable no-ex-assign */
+/* eslint-disable no-fallthrough */
+/* eslint-disable no-useless-escape */
+/* eslint-disable camelcase */
 import _ from 'lodash'
 import YAML from 'yaml'
 import fs from 'node:fs'
@@ -296,7 +300,7 @@ const adapter = new class QQBotAdapter {
           messages.push([i])
           break
         case 'file':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i, type)
+          if (i.file) i.file = await Bot.fileToUrl(i.file, i.type)
           content += await this.makeRawMarkdownText(data, baseUrl, `文件：${i.file}`, button)
           break
         case 'at':
@@ -366,7 +370,7 @@ const adapter = new class QQBotAdapter {
   }
 
   makeMarkdownTemplate (data, template) {
-    let keys, custom_template_id, params = [], index = 0, type = 0
+    let keys; let custom_template_id; let params = []; let index = 0; let type = 0
     const result = []
     if (markdown_template) {
       custom_template_id = markdown_template.custom_template_id
@@ -381,7 +385,6 @@ const adapter = new class QQBotAdapter {
       if (!temp.length) continue
 
       for (const i of splitMarkDownTemplate(temp)) {
-
         if (index == (type == 1 ? markdown_template.params.length : keys.length)) {
           result.push({
             type: 'markdown',
@@ -393,7 +396,7 @@ const adapter = new class QQBotAdapter {
         }
 
         if (type == 1) {
-          params[index].values = [i];
+          params[index].values = [i]
         } else {
           params.push({
             key: keys[index],
@@ -407,9 +410,9 @@ const adapter = new class QQBotAdapter {
     if (config.mdSuffix?.[data.self_id]) {
       if (!params.some(p => config.mdSuffix[data.self_id].some(c => (c.key === p.key && p.values[0] !== '\u200B')))) {
         for (const i of config.mdSuffix[data.self_id]) {
-          data.group = data.bot.pickGroup(data.group_id)
-          data.friend = data.bot.pickFriend(data.user_id)
-          data.member = data.bot.pickMember(data.group_id, data.user_id)
+          if (data.group_id) data.group = data.bot.pickGroup(data.group_id)
+          if (data.user_id) data.friend = data.bot.pickFriend(data.user_id)
+          if (data.user_id && data.group_id) data.member = data.bot.pickMember(data.group_id, data.user_id)
           const value = getMustacheTemplating(i.values[0], { e: data })
           params.push({ key: i.key, values: [value] })
         }
@@ -1347,7 +1350,6 @@ const adapter = new class QQBotAdapter {
         break
       default:
         Bot.makeLog('warn', ['未知通知', event], id)
-        return
     }
 
     // Bot.em(`${data.post_type}.${data.notice_type}.${data.sub_type}`, data)
