@@ -83,7 +83,7 @@ const adapter = new class QQBotAdapter {
     this.version = 'qq-group-bot v11.45.14'
 
     if (typeof config.toQRCode == 'boolean') {
-      this.toQRCodeRegExp = config.toQRCode ? /https?:\/\/[-\w_]+(\.[-\w_]+)+([-\w.,@?^=%&:/~+#]*[-\w@?^=%&/~+#])?/g : false
+      this.toQRCodeRegExp = config.toQRCode ? /(?<!\[(.*?)\]\()https?:\/\/[-\w_]+(\.[-\w_]+)+([-\w.,@?^=%&:/~+#]*[-\w@?^=%&/~+#])?/g : false
     } else {
       this.toQRCodeRegExp = new RegExp(config.toQRCode, 'g')
     }
