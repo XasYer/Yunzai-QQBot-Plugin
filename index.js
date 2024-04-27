@@ -2,7 +2,6 @@ import _ from 'lodash'
 import YAML from 'yaml'
 import fs from 'node:fs'
 import QRCode from 'qrcode'
-import moment from 'moment'
 import { join } from 'node:path'
 import imageSize from 'image-size'
 import { randomUUID } from 'node:crypto'
@@ -1538,14 +1537,6 @@ export class QQBotAdapter extends plugin {
     })
   }
 
-  async init () {
-    // dau数据合并
-    let dauPath = './data/QQBotDAU'
-    if (fs.existsSync(dauPath)) {
-      this.mergeDAU(dauPath)
-    }
-  }
-
   help () {
     this.reply([' ', segment.button(
       [
@@ -1655,70 +1646,6 @@ export class QQBotAdapter extends plugin {
     config.filterLog[this.e.self_id] = filterLog
     await configSave()
     this.reply(msg, true)
-  }
-
-  mergeDAU (dauPath) {
-    let daus = this.getAllDAU(dauPath)
-    if (!daus.length) return false
-
-    daus = _.filter(daus, v => v.endsWith('.json'))
-    if (_.some(daus, v => v.split('-').length === 2)) {
-      const path2 = daus.find(v => v.includes('2024-03'))
-      if (fs.existsSync(path2)) {
-        const data2 = JSON.parse(fs.readFileSync(path2, 'utf8'))
-        const errdata = data2.find(v => v.time === '2024-02-29')
-        if (errdata) {
-          const path1 = daus.find(v => v.includes('2024-02'))
-          const data1 = fs.existsSync(path1) ? JSON.parse(fs.readFileSync(path1, 'utf8')) : []
-          data1.push(errdata)
-          fs.writeFile(path1, JSON.stringify(data1, '', '\t'), 'utf8', () => { })
-          fs.writeFile(path2, JSON.stringify(_.tail(data2), '', '\t'), 'utf8', () => { })
-        }
-      }
-      return false
-    }
-
-    daus = _.groupBy(daus, v => v.slice(0, v.lastIndexOf('/')))
-    logger.info('[QQBOT]正在合并DAU数据中，请稍等...')
-
-    try {
-      _.each(daus, (v, k) => {
-        let datas = _.map(v, f => JSON.parse(fs.readFileSync(f, 'utf8')))
-        datas = _.groupBy(datas, d => moment(d.time).format('yyyy-MM'))
-        _.each(datas, (data, month) => {
-          fs.writeFileSync(`${k}/${month}.json`, JSON.stringify(data, '', '\t'), 'utf8')
-        })
-
-        if (!fs.existsSync('./temp/QQBotDAU')) fs.mkdirSync('./temp/QQBotDAU')
-        let tempfolder = k.replace('./data', './temp')
-        if (!fs.existsSync(tempfolder)) fs.mkdirSync(tempfolder)
-
-        _.each(v, temp => {
-          let tempfile = temp.replace('./data', './temp')
-          fs.copyFileSync(temp, tempfile)
-          fs.unlinkSync(temp)
-        })
-      })
-      logger.info('[QQBOT]DAU数据合并成功！旧数据已迁移至temp/QQBotDAU目录')
-    } catch (err) {
-      logger.error('[QQBOT]DAU数据合并失败！')
-      return false
-    }
-  }
-
-  getAllDAU (dauPath) {
-    let dirs = fs.readdirSync(dauPath, { withFileTypes: true })
-    if (_.isEmpty(dirs)) return dirs
-
-    let daus = []
-    _.each(dirs, v => {
-      let currentPath = `${dauPath}/${v.name}`
-      if (v.isDirectory()) {
-        daus = daus.concat(this.getAllDAU(currentPath))
-      } else daus.push(currentPath)
-    })
-
-    return daus
   }
 }
 

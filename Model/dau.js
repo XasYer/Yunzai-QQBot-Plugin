@@ -219,7 +219,7 @@ export default class Dau {
       const s = arr[i]
       msg.push(`${i + 1}: ${s[0]}\t\t${s[1]}次`)
     }
-    return [msg.join('\n').replace(/(\[.*?\])(\[.*?\])/g, '$1 $2'), this.#getButton(e.user_id)]
+    return [msg.join('\n').replace(/\[(.*?)\]\[(.*?)\]/g, '【$1】【$2】'), this.#getButton(e.user_id)]
   }
 
   getUserStatsMsg (e) {
