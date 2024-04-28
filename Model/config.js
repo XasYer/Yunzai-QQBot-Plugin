@@ -51,7 +51,7 @@ let { config, configSave } = await makeConfig('QQBot', {
     cors: [
       'http://localhost',
       'http://127.0.0.1',
-      'https://gh.xasyer.icu/Yunzai-QQBot-Plugin'
+      'https://gh.xasyer.icu'
     ]
   }
 }, {
