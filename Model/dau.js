@@ -157,7 +157,9 @@ export default class Dau {
     const yearMonth = moment(this.#today).format('YYYY-MM')
     // 昨日DAU
     try {
-      let yesterdayDau = JSON.parse(fs.readFileSync(join(path, `${yearMonth}.json`), 'utf8'))
+      const day = this.#today.slice(-2)
+      const yestodayMonth = day == '01' ? moment(this.#today).subtract(1, 'days').format('YYYY-MM') : yearMonth
+      let yesterdayDau = JSON.parse(fs.readFileSync(join(path, `${yestodayMonth}.json`), 'utf8'))
       yesterdayDau = _.find(yesterdayDau, v => moment(v.time).isSame(moment(this.#today).subtract(1, 'd')))
       msg.push(...[yesterdayDau.time, ...this.#toDauMsg(yesterdayDau, 6), ''])
     } catch (error) { }
