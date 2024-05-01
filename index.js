@@ -22,8 +22,7 @@ const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
 const userIdCache = {}
-const DAU = {}
-const markdown_template = await importJS('Model/markdownTemplate.js', 'default')
+const markdown_template = await importJS('Model/template/markdownTemplate.js', 'default')
 const TmplPkg = await importJS('templates/index.js')
 
 let { config, configSave } = await makeConfig('QQBot', {
@@ -726,7 +725,7 @@ const adapter = new class QQBotAdapter {
 
           rets.data.push(ret)
           if (ret.id) rets.message_id.push(ret.id)
-          DAU[data.self_id].setDau('send_msg', data)
+          Bot[data.self_id].dau.setDau('send_msg', data)
         } catch (err) {
           // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
           logger.error(data.self_id, '发送消息错误', i, err)
@@ -883,7 +882,7 @@ const adapter = new class QQBotAdapter {
 
           rets.data.push(ret)
           if (ret.id) rets.message_id.push(ret.id)
-          DAU[data.self_id].setDau('send_msg', data)
+          Bot[data.self_id].dau.setDau('send_msg', data)
         } catch (err) {
           // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
           logger.error(data.self_id, '发送消息错误', i, err)
@@ -1221,7 +1220,7 @@ const adapter = new class QQBotAdapter {
     }
 
     data.bot.stat.recv_msg_cnt++
-    DAU[data.self_id].setDau('receive_msg', data)
+    Bot[data.self_id].dau.setDau('receive_msg', data)
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
@@ -1315,9 +1314,9 @@ const adapter = new class QQBotAdapter {
       case 'action':
         return this.makeCallback(id, event)
       case 'increase':
-        DAU[data.self_id].setDau('group_increase', data)
+        Bot[data.self_id].dau.setDau('group_increase', data)
         if (event.notice_type === 'group') {
-          const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'groupIncreaseMsg.js')
+          const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'template', 'groupIncreaseMsg.js')
           if (fs.existsSync(path)) {
             import(`file://${path}`).then(i => i.default).then(async i => {
               let msg
@@ -1334,7 +1333,7 @@ const adapter = new class QQBotAdapter {
         }
         return
       case 'decrease':
-        DAU[data.self_id].setDau('group_decrease', data)
+        Bot[data.self_id].dau.setDau('group_decrease', data)
       case 'update':
       case 'member.increase':
       case 'member.decrease':
@@ -1424,6 +1423,8 @@ const adapter = new class QQBotAdapter {
       gl: await this.getGroupMap(id),
       gml: await this.getMemberMap(id),
 
+      dau: new Dau(id, this.sep),
+
       callback: {}
     }
 
@@ -1444,14 +1445,13 @@ const adapter = new class QQBotAdapter {
     }
 
     await Bot[id].login()
+    await Bot[id].dau.init()
 
     Bot[id].sdk.on('message', event => this.makeMessage(id, event))
     Bot[id].sdk.on('notice', event => this.makeNotice(id, event))
 
     Bot.makeLog('mark', `${this.name}(${this.id}) ${this.version} 已连接`, id)
     Bot.em(`connect.${id}`, { self_id: id })
-    DAU[id] = new Dau(id, this.sep)
-    await DAU[id].init()
     return true
   }
 
@@ -1484,53 +1484,58 @@ export class QQBotAdapter extends plugin {
       event: 'message',
       rule: [
         {
-          reg: '^#[Qq]+[Bb]ot(帮助|help)$',
+          reg: /^#q+bot(帮助|help)$/i,
           fnc: 'help',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot账号$',
+          reg: /^#q+bot账号$/i,
           fnc: 'List',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot设置[0-9]+:[0-9]+:.+:.+:[01]:[01]$',
+          reg: /^#q+bot设置[0-9]+:[0-9]+:.+:.+:[01]:[01]$/i,
           fnc: 'Token',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?[0-9]+:',
+          reg: /^#q+botm(ark)?d(own)?[0-9]+:/i,
           fnc: 'Markdown',
           permission: config.permission
         },
         {
-          reg: `^#[Qq]+[Bb]ot设置(${Object.keys(setMap).join('|')})\\s*(开启|关闭)$`,
+          reg: new RegExp(`^#q+bot设置(${Object.keys(setMap).join('|')})\\s*(开启|关闭)$`, 'i'),
           fnc: 'Setting',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot[Dd][Aa][Uu]',
+          reg: /^#q+botdau/i,
           fnc: 'DAUStat',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot调用统计$',
+          reg: /^#q+bot调用统计$/i,
           fnc: 'callStat',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot用户统计$',
+          reg: /^#q+bot用户统计$/i,
           fnc: 'userStat',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot刷新co?n?fi?g$',
+          reg: /^#q+bot刷新co?n?fi?g$/i,
           fnc: 'refConfig',
           permission: config.permission
         },
         {
-          reg: '^#[Qq]+[Bb]ot(添加|删除)过滤日志',
+          reg: /^#q+bot(添加|删除)过滤日志/i,
           fnc: 'filterLog',
+          permission: config.permission
+        },
+        {
+          reg: /^#q+bot一键群发$/i,
+          fnc: 'oneKeySendGroupMsg',
           permission: config.permission
         }
       ]
@@ -1564,7 +1569,7 @@ export class QQBotAdapter extends plugin {
   }
 
   async Token () {
-    const token = this.e.msg.replace(/^#[Qq]+[Bb]ot设置/, '').trim()
+    const token = this.e.msg.replace(/^#q+bot设置/i, '').trim()
     if (config.token.includes(token)) {
       config.token = config.token.filter(item => item != token)
       this.reply(`账号已删除，重启后生效，共${config.token.length}个账号`, true)
@@ -1581,7 +1586,7 @@ export class QQBotAdapter extends plugin {
   }
 
   async Markdown () {
-    let token = this.e.msg.replace(/^#[Qq]+[Bb]ot[Mm](ark)?[Dd](own)?/, '').trim().split(':')
+    let token = this.e.msg.replace(/^#q+botm(ark)?d(own)?/i, '').trim().split(':')
     const bot_id = token.shift()
     token = token.join(':')
     this.reply(`Bot ${bot_id} Markdown 模板已设置为 ${token}`, true)
@@ -1590,7 +1595,7 @@ export class QQBotAdapter extends plugin {
   }
 
   async Setting () {
-    const reg = /^#[Qq]+[Bb]ot设置(.+)\s*(开启|关闭)$/
+    const reg = /^#q+bot设置(.+)\s*(开启|关闭)$/i
     const regRet = reg.exec(this.e.msg)
     const state = regRet[2] == '开启'
     config[setMap[regRet[1]]] = state
@@ -1599,9 +1604,9 @@ export class QQBotAdapter extends plugin {
   }
 
   async DAUStat () {
-    const pro = !!/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/.exec(this.e.msg)[1]
-    const uin = this.e.msg.replace(/^#[Qq]+[Bb]ot[Dd][Aa][Uu]([Pp]ro)?/, '') || this.e.self_id
-    const dau = DAU[uin]
+    const pro = this.e.msg.includes('pro')
+    const uin = this.e.msg.replace(/^#q+botdau(pro)?/i, '') || this.e.self_id
+    const dau = Bot[uin]?.dau
     if (!dau) return false
 
     const msg = await dau.getDauStatsMsg(this.e, pro)
@@ -1610,7 +1615,7 @@ export class QQBotAdapter extends plugin {
 
   async callStat () {
     if (!config.callStats) return false
-    const dau = DAU[this.e.self_id]
+    const dau = this.e.bot.dau
     if (!dau) return false
     const msg = dau.getCallStatsMsg(this.e)
     if (msg.length) this.reply(msg, true)
@@ -1618,7 +1623,7 @@ export class QQBotAdapter extends plugin {
 
   async userStat () {
     if (!config.userStats) return false
-    const dau = DAU[this.e.self_id]
+    const dau = this.e.bot.dau
     if (!dau) return false
     const msg = dau.getUserStatsMsg(this.e)
     if (msg.length) this.reply(msg, true)
@@ -1626,7 +1631,7 @@ export class QQBotAdapter extends plugin {
 
   // 自欺欺人大法
   async filterLog () {
-    const match = /^#[Qq]+[Bb]ot(添加|删除)过滤日志(.*)/.exec(this.e.msg)
+    const match = /^#q+bot(添加|删除)过滤日志(.*)/i.exec(this.e.msg)
     let msg = _.trim(match[2]) || ''
     if (!msg) return false
 
@@ -1646,6 +1651,32 @@ export class QQBotAdapter extends plugin {
     config.filterLog[this.e.self_id] = filterLog
     await configSave()
     this.reply(msg, true)
+  }
+
+  async oneKeySendGroupMsg () {
+    const msg = await importJS('Model/template/oneKeySendGroupMsg.js', 'default')
+    if (msg === false) {
+      this.reply('请先设置模版哦', true)
+    } else {
+      const groupList = this.e.bot.dau.getProp('all_group')
+      const getMsg = typeof msg === 'function' ? msg : () => msg
+      const errGroupList = []
+      for (const key in groupList) {
+        if (key === 'total') continue
+        const sendMsg = await getMsg(`${this.e.self_id}${this.e.bot.adapter.sep}${key}`)
+        if (!sendMsg?.length) continue
+        const sendRet = await this.e.bot.pickGroup(key).sendMsg(sendMsg)
+        if (sendRet.error.length) {
+          for (const i of sendRet.error) {
+            if (i.message.includes('机器人非群成员')) {
+              errGroupList.push(key)
+              break
+            }
+          }
+        }
+      }
+      if (errGroupList.length) await this.e.bot.dau.deleteNotExistGroup(errGroupList)
+    }
   }
 }
 

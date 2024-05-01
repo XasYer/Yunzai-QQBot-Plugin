@@ -95,7 +95,7 @@ export default class Dau {
    * 动态读取参数
    * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'|'#user_increase'|'all_user'|'all_group'|'all_group_member'} key
    */
-  #getProp (key) {
+  getProp (key) {
     switch (key) {
       case 'stats':
         return this.#stats
@@ -374,18 +374,16 @@ export default class Dau {
         await this.#setUserOrGroupStats(user_id, group_id)
         break
       case 'group_decrease':
-        delete this.#all_group[group_id]
-        this.#all_group.total--
-        delete this.#all_group_member[group_id]
-        await this.#setDB('all_group', this.#all_group, 0)
-        await this.#setDB('all_group_member', this.#all_group_member, 0)
-      case 'group_increase':
-        if (!this.#getProp(type)[group_id]) {
-          this.#stats[key]++
-          this.#getProp(type)[group_id] = 0
+        if (this.#all_group[group_id]) {
+          this.deleteNotExistGroup([group_id])
         }
-        this.#getProp(type)[group_id]++
-        this.#setDB(type, this.#getProp(type), 2)
+      case 'group_increase':
+        if (!this.getProp(type)[group_id]) {
+          this.#stats[key]++
+          this.getProp(type)[group_id] = 0
+        }
+        this.getProp(type)[group_id]++
+        this.#setDB(type, this.getProp(type), 2)
         break
     }
     await this.#setDB('dau_stats', this.#stats)
@@ -536,6 +534,21 @@ export default class Dau {
     }
 
     await this.#setDB('user_group_stats', this.#today_user_data, 2)
+  }
+
+  /**
+   * 删除不存在的群
+   * @param {string[]} groupIdList
+   */
+  async deleteNotExistGroup (groupIdList) {
+    for (const i of groupIdList) {
+      if (!this.#all_group[i]) continue
+      delete this.#all_group[i]
+      this.#all_group.total--
+      delete this.#all_group_member[i]
+    }
+    await this.#setDB('all_group', this.#all_group, 0)
+    await this.#setDB('all_group_member', this.#all_group_member, 0)
   }
 
   async #getDB (key, date = this.#today) {

@@ -15,7 +15,7 @@ TRSS-Yunzai QQBot 适配器 插件
 1. 转发消息改为渲染成图片,需要安装`ws-plugin`
 2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
 3. `#QQBotDAU` and `#QQBotDAUpro`
-5. `QQBot-Plugin/Model`中`自定义入群发送主动消息`
+5. `Model/template/groupIncreaseMsg_default.js`中`自定义入群发送主动消息`
 6. `config/QQBot.yaml`中使用以下自定义模版,如果设置了全局md会优先使用自定义模版,配合`e.toQQBotMD = true`将特定消息`转换`成md,亦可在`全局md模式下`通过`e.toQQBotMD = false`将特定消息`不转换`成md
     - 方法1: 直接修改`config/QQBot.yaml` **(推荐)**
       ```yml
@@ -27,7 +27,7 @@ TRSS-Yunzai QQBot 适配器 插件
             - key2
             # ... 最多10个
       ```
-    - 方法2: 在`Model`目录下新建`markdownTemplate.js`文件,写入以下内容 **(不推荐)**
+    - 方法2: 在`Model/template`目录下新建`markdownTemplate.js`文件,写入以下内容 **(不推荐)**
       ```js
       // params为数组,每一项为{key:string,values: ['\u200B']} // values固定为['\u200B']
       export defalut {
@@ -78,6 +78,7 @@ TRSS-Yunzai QQBot 适配器 插件
         # ...
       ```
 13. `config/QQBot.yaml`中`simplifiedSdkLog`是否简化sdk日志,若设置为`true`则不会打印` recv from Group(xxx):  xxx`,并且会简化发送为`send to Group(xxx): <markdown><button>`
+14. `#QQBot一键群发`: 需要先配置模版 `template/oneKeySendGroupMsg_default.js`
 
 ## 安装教程
 
