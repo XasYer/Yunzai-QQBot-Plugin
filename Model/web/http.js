@@ -1,4 +1,6 @@
-import { config } from './config.js'
+import { config } from '../config.js'
+import { randomUUID } from 'node:crypto'
+import { getDauChartData } from './api.js'
 
 const path = '/qqbot'
 const corsOptions = {
@@ -12,6 +14,8 @@ Bot.express.options(path + '/*', (req, res) => {
   res.set(corsOptions)
   res.sendStatus(200)
 })
+
+const token = {}
 
 const route = [
   {
@@ -36,6 +40,7 @@ const route = [
           message: '密码错误'
         }
       }
+      token[uin] = randomUUID()
       return {
         success: true,
         data: {
@@ -43,8 +48,8 @@ const route = [
           username: 'admin',
           nickname: bot.nickname,
           roles: ['admin'],
-          accessToken: 'eyJhbGciOiJIUzUxMiJ9.admin',
-          refreshToken: 'eyJhbGciOiJIUzUxMiJ9.adminRefresh',
+          accessToken: token[uin] + '.' + uin,
+          refreshToken: token[uin] + ':refreshToken.' + uin,
           expires: '2030/10/30 00:00:00'
         }
       }
@@ -55,9 +60,22 @@ const route = [
     method: 'get',
     response: () => {
       return {
-        code: 200,
         success: true,
         data: []
+      }
+    }
+  },
+  {
+    url: '/getHomeData',
+    method: 'post',
+    response: ({ body: { token } }) => {
+      const [accessToken, uin] = token.split('.')
+      const chartData = getDauChartData(uin)
+      return {
+        success: true,
+        data: {
+          chartData
+        }
       }
     }
   }
