@@ -1,5 +1,27 @@
 import { join } from 'path'
 import { randomUUID } from 'node:crypto'
+import fs from 'node:fs'
+
+for (const i of ['groupIncreaseMsg', 'markdownTemplate']) {
+  const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model')
+  const oldPath = join(path, i + '.js')
+  const newPath = join(path, 'template', i + '.js')
+  const oldTempPath = join(path, i + '_default.js')
+  if (fs.existsSync(oldPath)) {
+    try {
+      fs.renameSync(oldPath, newPath)
+    } catch (error) {
+      console.log('移动旧文件时出现错误', error)
+    }
+  }
+  if (fs.existsSync(oldTempPath)) {
+    try {
+      fs.unlinkSync(oldTempPath)
+    } catch (error) {
+      console.log('删除旧文件时出现错误', error)
+    }
+  }
+}
 
 /**
  * 获得指定日期的日期字符串

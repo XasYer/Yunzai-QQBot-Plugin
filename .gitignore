@@ -4,5 +4,6 @@ test
 templates
 **/test.js
 node_modules
-Model/markdownTemplate.js
-Model/groupIncreaseMsg.js
+Model/template/markdownTemplate.js
+Model/template/groupIncreaseMsg.js
+Model/template/oneKeySendGroupMsg.js
