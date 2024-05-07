@@ -171,7 +171,7 @@ const adapter = new class QQBotAdapter {
 
   async makeMarkdownImage (data, baseUrl, file, summary = '图片') {
     const buffer = await Bot.Buffer(file)
-    const image = await this.uploadImage(data, baseUrl, buffer) ||
+    const image = // await this.uploadImage(data, baseUrl, buffer) ||
       await this.makeBotImage(buffer) ||
       { url: await Bot.fileToUrl(file) }
 
