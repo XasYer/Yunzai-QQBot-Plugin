@@ -44,6 +44,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   btnSuffix: {},
   filterLog: {},
   simplifiedSdkLog: false,
+  markdownImgScale: 1.0,
   sep: '',
   // dau: {
   //   enable: true,
@@ -184,6 +185,9 @@ const adapter = new class QQBotAdapter {
         Bot.makeLog('error', ['图片分辨率检测错误', file, err], data.self_id)
       }
     }
+
+    image.width = Math.floor(image.width * config.markdownImgScale)
+    image.height = Math.floor(image.height * config.markdownImgScale)
 
     return {
       des: `![${summary} #${image.width || 0}px #${image.height || 0}px]`,

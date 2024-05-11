@@ -79,6 +79,7 @@ TRSS-Yunzai QQBot 适配器 插件
       ```
 13. `config/QQBot.yaml`中`simplifiedSdkLog`是否简化sdk日志,若设置为`true`则不会打印` recv from Group(xxx):  xxx`,并且会简化发送为`send to Group(xxx): <markdown><button>`
 14. `#QQBot一键群发`: 需要先配置模版 `template/oneKeySendGroupMsg_default.js`
+15. `config/QQBot.yaml`中`markdownImgScale: 1`是否对markdown中的图片进行等比例缩放,0.5为缩小50%,1.5为放大50%,以此类推
 
 ## 安装教程
 
