@@ -740,7 +740,7 @@ const adapter = new class QQBotAdapter {
     }
 
     if (TmplPkg && TmplPkg?.Button && !data.toQQBotMD) {
-      let fncName = /^\[.*?\]\[(\S+)\]$/.exec(data.logFnc)[1]
+      let fncName = /\[.*?\((\S+)\)\]/.exec(data.logFnc)[1]
       const Btn = TmplPkg.Button[fncName]
 
       if (msg.type === 'node') data.wsids = { toImg: config.toImg }

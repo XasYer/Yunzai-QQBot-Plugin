@@ -391,6 +391,9 @@ export default class Dau {
 
   async #setLogFnc (user_id, group_id, logFnc, message_id) {
     if (!logFnc) return
+    let logReg = /\[.*?\[(.*?\))\]/
+    if (logReg.test(logFnc)) logFnc = `[${logFnc.match(logReg)[1]}]`
+
     // 每个消息只记录一次
     if (this.#message_id_cache[message_id]) return
     if (!this.#call_stats[logFnc]) this.#call_stats[logFnc] = 0
