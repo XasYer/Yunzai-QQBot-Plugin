@@ -684,7 +684,7 @@ const adapter = new class QQBotAdapter {
           i = { type: 'text', text: JSON.stringify(i) }
       }
 
-      if (i.type == 'text' && i.text) {
+      if (i.type === 'text' && i.text) {
         const match = i.text.match(this.toQRCodeRegExp)
         if (match) {
           for (const url of match) {
@@ -699,8 +699,9 @@ const adapter = new class QQBotAdapter {
         }
       }
 
-      message.push(i)
+      if (i.type !== 'node') message.push(i)
     }
+
     if (message.length) { messages.push(message) }
 
     while (button.length) {
