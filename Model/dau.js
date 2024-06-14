@@ -17,12 +17,6 @@ const dauAttr = {
   group_decrease_count: '减少群数'
 }
 
-// 兼容一下旧数据
-const oldAttr = {
-  receive_msg_count: 'msg_count',
-  send_msg_count: 'send_count'
-}
-
 const numToChinese = {
   /* eslint-disable object-property-newline */
   1: '一', 2: '二', 3: '三', 4: '四', 5: '五',
@@ -39,6 +33,7 @@ export default class Dau {
   constructor (self_id, sep) {
     this.self_id = String(self_id)
     this.sep = sep
+    this.color = ['#FFD700', '#73a9c6', '#d56565', '#70b2b4', '#1E90FF', '#bd9a5a', '#739970', '#7a6da7', '#597ea0', '#FC0AD3', '#989598']
   }
 
   #stats
@@ -156,10 +151,11 @@ export default class Dau {
     const path = join(_path, 'data', 'QQBotDAU', this.self_id)
     const yearMonth = moment(this.#today).format('YYYY-MM')
     // 昨日DAU
+    let yesterdayDau
     try {
       const day = this.#today.slice(-2)
       const yestodayMonth = day == '01' ? moment(this.#today).subtract(1, 'days').format('YYYY-MM') : yearMonth
-      let yesterdayDau = JSON.parse(fs.readFileSync(join(path, `${yestodayMonth}.json`), 'utf8'))
+      yesterdayDau = JSON.parse(fs.readFileSync(join(path, `${yestodayMonth}.json`), 'utf8'))
       yesterdayDau = _.find(yesterdayDau, v => moment(v.time).isSame(moment(this.#today).subtract(1, 'd')))
       msg.push(...[yesterdayDau.time, ...this.#toDauMsg(yesterdayDau, 6), ''])
     } catch (error) { }
@@ -174,7 +170,7 @@ export default class Dau {
       let days30 = [yearMonth, moment(yearMonth).subtract(1, 'm').format('YYYY-MM')]
       days30 = _(days30).map(v => {
         let file = join(path, `${v}.json`)
-        return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).reverse().map(v => this.#mergeOldDau(v)) : []
+        return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).reverse() : []
       }).flatten().take(30).value()
       days = days30.length
       totalDAU = _.mapValues(totalDAU, (v, k) => _.floor(_.meanBy(days30, k)))
@@ -189,15 +185,20 @@ export default class Dau {
       let daus = fs.readdirSync(path)// .reverse().slice(0, 2)
       if (_.isEmpty(daus)) return false
       let data = _.fromPairs(daus.map(v => [v.replace('.json', ''), JSON.parse(fs.readFileSync(`${path}/${v}`))]))
-      data = this.#monthlyDau(data)
+      data = this.#monthlyDau(Object.values(data).flat().slice(-30))
 
       totalDAU.days = days
+      const arr = _.entries(this.#call_stats).sort((a, b) => b[1] - a[1])
       let renderdata = {
+        ...await this.callStat(arr, true),
         daus: JSON.stringify(data),
         // call_stats: JSON.stringify(this.#call_stats),
         totalDAU,
+        yesterdayDau: yesterdayDau || {},
         todayDAU: this.#stats,
-        monthly: _.keys(data).reverse(),
+        monthly: data.time,
+        groupNum: this.#all_group.total,
+        userNum: this.#all_user.total,
         nickname: Bot[this.self_id].nickname,
         avatar: Bot[this.self_id].avatar,
         tplFile: `${_path}/plugins/QQBot-Plugin/resources/html/DAU/DAU.html`,
@@ -221,7 +222,60 @@ export default class Dau {
       const s = arr[i]
       msg.push(`${i + 1}: ${s[0]}\t\t${s[1]}次`)
     }
-    return [msg.join('\n').replace(/\[(.*?)\]\[(.*?)\]/g, '【$1】【$2】'), this.#getButton(e.user_id)]
+    return [msg.join('\n'), this.#getButton(e.user_id)]
+  }
+
+  async callStat (arr, isall = false) {
+    const group = []; const color = []; let all = 0
+    const AllNum = arr.reduce((acc, cur) => {
+      if (typeof cur[1] === 'number') return acc + cur[1]
+      return acc
+    }, 0)
+
+    for (let i = 0; i < 10; i++) {
+      if (!arr[i]) break
+      const s = arr[i]
+      const percent = Number((s[1] / AllNum * 100).toFixed(0))
+      if (percent < 1) continue
+      group.push({
+        name: s[0],
+        num: s[1],
+        percent: percent + '%'
+      })
+      all += s[1]
+    }
+
+    if (all !== AllNum) {
+      group.push({
+        name: '其他',
+        num: AllNum - all,
+        percent: ((AllNum - all) / AllNum * 100).toFixed(0) + '%'
+      })
+    }
+    group.sort((a, b) => b.num - a.num)
+    for (const i in group) {
+      group[i].color = this.color[i]
+      color.push(this.color[i])
+    }
+    if (isall) {
+      return {
+        group,
+        color: JSON.stringify(color),
+        group_by: JSON.stringify(group)
+      }
+    }
+    let renderdata = {
+      group,
+      color: JSON.stringify(color),
+      group_by: JSON.stringify(group),
+      tplFile: `${_path}/plugins/QQBot-Plugin/resources/html/Stat/Stat.html`,
+      pluResPath: `${_path}/plugins/QQBot-Plugin/resources/`,
+      _res_Path: `${_path}/plugins/genshin/resources/`
+    }
+
+    let img = await puppeteer.screenshot('DAU', renderdata)
+    if (!img) return false
+    return img
   }
 
   getUserStatsMsg (e) {
@@ -279,41 +333,30 @@ export default class Dau {
   }
 
   /**
-   * 兼容旧数据 三十天后删除 2024年4月11日
-   * @param {*} data
-   */
-  #mergeOldDau (data) {
-    for (const k in oldAttr) {
-      !data[k] && (data[k] = data[oldAttr[k]])
-    }
-    return data
-  }
-
-  /**
    * 月度统计
    * @param {object} dat
    * @returns
    */
   #monthlyDau (data) {
     const convertChart = (type, day, prefix = '') => {
-      day = this.#mergeOldDau(day)
-      let chartData = { time: day.time }
-      chartData[`${prefix}name`] = dauAttr[`${type}_count`]
-      chartData[`${prefix}count`] = day[`${type}_count`]
+      let chartData = []
+      for (const i of type) {
+        chartData.push({
+          time: day.time,
+          [`${prefix}name`]: dauAttr[`${i}_count`],
+          [`${prefix}count`]: day[`${i}_count`]
+        })
+      }
       return chartData
     }
-
-    data = _.mapValues(data, v => {
-      let coldata = []
-      let linedata = []
-      _.each(v, day => {
-        coldata.push(convertChart('user', day), convertChart('group', day))
-        linedata.push(convertChart('receive_msg', day, 'line'), convertChart('send_msg', day, 'line'))
-      })
-      return [linedata, coldata]
+    let coldata = []
+    let linedata = []
+    data.forEach(day => {
+      coldata.push(convertChart(['user', 'group'], day))
+      linedata.push(convertChart(['receive_msg', 'send_msg'], day, 'line'))
     })
 
-    return data
+    return { coldata: [[], coldata.flat()], linedata: [linedata.flat(), []], time: coldata[0][0].time.slice(5) + ' - ' + coldata.pop()[0].time.slice(5) }
   }
 
   async #initData () {
@@ -348,11 +391,7 @@ export default class Dau {
   #toDauMsg (data, num = 0) {
     const msg = []
     _.each(dauAttr, (v, k) => {
-      if (data[k] !== undefined) {
-        msg.push(`${v}：${data[k]}`)
-      } else {
-        msg.push(`${v}：${data[oldAttr[k]]}`)
-      }
+      msg.push(`${v}：${data[k]}`)
     })
     return num ? _.take(msg, num) : msg
   }
