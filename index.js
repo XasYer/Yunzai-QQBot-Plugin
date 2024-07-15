@@ -38,6 +38,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   markdown: {
     template: 'abcdefghij'
   },
+  sendButton: true,
   customMD: {},
   mdSuffix: {},
   btnSuffix: {},
@@ -643,7 +644,7 @@ const adapter = new class QQBotAdapter {
           if (typeof i.data == 'object') { i = { type: 'markdown', ...i.data } } else { i = { type: 'markdown', content: i.data } }
           break
         case 'button':
-          button.push(...this.makeButtons(data, i.data))
+          config.sendButton && button.push(...this.makeButtons(data, i.data))
           continue
         case 'node':
           if (Handler.has('ws.tool.toImg') && config.toImg) {
