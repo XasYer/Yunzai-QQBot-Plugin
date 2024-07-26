@@ -61,7 +61,7 @@ body {
 #chartContainer {
   width: 1000px;
   height: 1000px;
-  background: url(../../../../genshin/resources/StarRail/img/other/chart.png) no-repeat 50% / cover;
+  background: url(../DAU/img/chart.png) no-repeat 50% / cover;
   margin-left: -80px;
 }
 

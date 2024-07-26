@@ -197,7 +197,7 @@ body {
 #chartContainer {
   width: 900px;
   height: 900px;
-  background: url(../../../../genshin/resources/img/other/chart.png) no-repeat 50% / cover;
+  background: url(./img/chart.png) no-repeat 50% / cover;
   margin-left: -80px;
 }
 

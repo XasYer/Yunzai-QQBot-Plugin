@@ -1343,6 +1343,10 @@ const adapter = new class QQBotAdapter {
       case 'member.decrease':
       case 'member.update':
         break
+      case 'receive_open':
+      case 'receive_close':
+        Bot.em(`${data.post_type}.${data.notice_type}.${data.sub_type}`, data)
+        break
       default:
         // console.log('event', event)
         Bot.makeLog('warn', ['未知通知', event], id)

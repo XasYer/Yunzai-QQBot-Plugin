@@ -5,8 +5,8 @@
   <meta http-equiv="content-type" content="text/html;charset=utf-8" />
   <link rel="shortcut icon" href="#" />
   <link rel="stylesheet" type="text/css" href="{{pluResPath}}html/Stat/Stat.css" />
-  <link rel="preload" href="{{_res_Path}}script/g2plot.min.js" as="script" />
-  <link rel="preload" href="{{_res_Path}}font/tttgbnumber.ttf" as="font">
+  <link rel="preload" href="{{pluResPath}}script/g2plot.min.js" as="script" />
+  <link rel="preload" href="{{pluResPath}}font/tttgbnumber.ttf" as="font">
   <link rel="preload" href="{{pluResPath}}html/DAU/img/bg.webp" as="image">
 </head>
 
@@ -28,7 +28,7 @@
   </div>
 </body>
 
-<script type="text/javascript" src="{{_res_Path}}script/g2plot.min.js"></script>
+<script type="text/javascript" src="{{pluResPath}}script/g2plot.min.js"></script>
 <script>
   const { Pie } = G2Plot
   const data = JSON.parse(`{{@ group_by}}`)

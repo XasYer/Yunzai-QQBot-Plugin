@@ -103,25 +103,7 @@ TRSS-Yunzai QQBot 适配器 插件
 
 <details><summary>Markdown 消息</summary>
 
-高阶能力 → 消息模板 → 添加 Markdown 模板
-
-模板名称：多图文消息  
-使用场景：发送连续图文消息  
-Markdown 源码：
-
-```
-![图片 {{.size}}]({{.url}})
-{{.text}}
-```
-
-配置模板参数
-| 模板参数 | 参数示例 |
-| - | - |
-| .size | #100px #100px |
-| .url | https://qqminiapp.cdn-go.cn/open-platform/11d80dc9/img/robot.b167c62c.png |
-| .text | 这是一段文字 |
-
-保存 → 提交审核 → 审核完成后，输入 `#QQBotMD机器人QQ号:模板ID`
+R.I.P
 
 </details>
 
