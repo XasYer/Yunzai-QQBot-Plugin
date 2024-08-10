@@ -5,7 +5,6 @@ import QRCode from 'qrcode'
 import { join } from 'node:path'
 import imageSize from 'image-size'
 import { randomUUID } from 'node:crypto'
-import { Bot as QQBot } from 'qq-group-bot'
 import { encode as encodeSilk } from 'silk-wasm'
 import {
   Dau,
@@ -16,6 +15,14 @@ import {
   splitMarkDownTemplate,
   getMustacheTemplating
 } from './Model/index.js'
+
+const QQBot = await (async () => {
+  try {
+    return (await import('qq-official-bot')).Bot
+  } catch (error) {
+    return (await import('qq-group-bot')).Bot
+  }
+})()
 
 const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
