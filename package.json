@@ -5,6 +5,6 @@
   "dependencies": {
     "qrcode": "^1.5.3",
     "silk-wasm": "^3.3.3",
-    "qq-official-bot": "^1.0.1"
+    "qq-official-bot": "^1.0.2"
   }
 }

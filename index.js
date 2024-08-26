@@ -1349,6 +1349,8 @@ const adapter = new class QQBotAdapter {
       case 'member.increase':
       case 'member.decrease':
       case 'member.update':
+      case 'add':
+      case 'remove':
         break
       case 'receive_open':
       case 'receive_close':
