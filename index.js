@@ -53,6 +53,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   simplifiedSdkLog: false,
   markdownImgScale: 1.0,
   sep: '',
+  dauDB: 'level',
   // dau: {
   //   enable: true,
   //   user_count: true,  // 上行消息人数
@@ -1441,7 +1442,7 @@ const adapter = new class QQBotAdapter {
       gl: await this.getGroupMap(id),
       gml: await this.getMemberMap(id),
 
-      dau: new Dau(id, this.sep),
+      dau: new Dau(id, this.sep, config.dauDB),
 
       callback: {}
     }
@@ -1550,12 +1551,12 @@ export class QQBotAdapter extends plugin {
           reg: /^#q+bot(添加|删除)过滤日志/i,
           fnc: 'filterLog',
           permission: config.permission
-        },
-        {
-          reg: /^#q+bot一键群发$/i,
-          fnc: 'oneKeySendGroupMsg',
-          permission: config.permission
         }
+        // {
+        //   reg: /^#q+bot一键群发$/i,
+        //   fnc: 'oneKeySendGroupMsg',
+        //   permission: config.permission
+        // }
       ]
     })
   }
@@ -1625,8 +1626,7 @@ export class QQBotAdapter extends plugin {
     const pro = this.e.msg.includes('pro')
     const uin = this.e.msg.replace(/^#q+botdau(pro)?/i, '') || this.e.self_id
     const dau = Bot[uin]?.dau
-    if (!dau) return false
-
+    if (!dau || !dau.dauDB) return false
     const msg = await dau.getDauStatsMsg(this.e, pro)
     if (msg.length) this.reply(msg, true)
   }
@@ -1634,7 +1634,7 @@ export class QQBotAdapter extends plugin {
   async callStat () {
     if (!config.callStats) return false
     const dau = this.e.bot.dau
-    if (!dau) return false
+    if (!dau || !dau.dauDB) return false
     const msg = dau.getCallStatsMsg(this.e)
     if (msg.length) this.reply(msg, true)
   }
@@ -1642,8 +1642,11 @@ export class QQBotAdapter extends plugin {
   async userStat () {
     if (!config.userStats) return false
     const dau = this.e.bot.dau
-    if (!dau) return false
-    const msg = dau.getUserStatsMsg(this.e)
+    if (!dau || !dau.dauDB) return false
+    if (dau.dauDB === 'redis') {
+      return this.reply('用户统计只适配了level,,,', true)
+    }
+    const msg = await dau.getUserStatsMsg(this.e)
     if (msg.length) this.reply(msg, true)
   }
 
@@ -1671,31 +1674,32 @@ export class QQBotAdapter extends plugin {
     this.reply(msg, true)
   }
 
-  async oneKeySendGroupMsg () {
-    const msg = await importJS('Model/template/oneKeySendGroupMsg.js', 'default')
-    if (msg === false) {
-      this.reply('请先设置模版哦', true)
-    } else {
-      const groupList = this.e.bot.dau.getProp('all_group')
-      const getMsg = typeof msg === 'function' ? msg : () => msg
-      const errGroupList = []
-      for (const key in groupList) {
-        if (key === 'total') continue
-        const sendMsg = await getMsg(`${this.e.self_id}${this.e.bot.adapter.sep}${key}`)
-        if (!sendMsg?.length) continue
-        const sendRet = await this.e.bot.pickGroup(key).sendMsg(sendMsg)
-        if (sendRet.error.length) {
-          for (const i of sendRet.error) {
-            if (i.message.includes('机器人非群成员')) {
-              errGroupList.push(key)
-              break
-            }
-          }
-        }
-      }
-      if (errGroupList.length) await this.e.bot.dau.deleteNotExistGroup(errGroupList)
-    }
-  }
+  // 屎
+  // async oneKeySendGroupMsg () {
+  //   const msg = await importJS('Model/template/oneKeySendGroupMsg.js', 'default')
+  //   if (msg === false) {
+  //     this.reply('请先设置模版哦', true)
+  //   } else {
+  //     const groupList = this.e.bot.dau.getProp('all_group')
+  //     const getMsg = typeof msg === 'function' ? msg : () => msg
+  //     const errGroupList = []
+  //     for (const key in groupList) {
+  //       if (key === 'total') continue
+  //       const sendMsg = await getMsg(`${this.e.self_id}${this.e.bot.adapter.sep}${key}`)
+  //       if (!sendMsg?.length) continue
+  //       const sendRet = await this.e.bot.pickGroup(key).sendMsg(sendMsg)
+  //       if (sendRet.error.length) {
+  //         for (const i of sendRet.error) {
+  //           if (i.message.includes('机器人非群成员')) {
+  //             errGroupList.push(key)
+  //             break
+  //           }
+  //         }
+  //       }
+  //     }
+  //     if (errGroupList.length) await this.e.bot.dau.deleteNotExistGroup(errGroupList)
+  //   }
+  // }
 }
 
 const endTime = new Date()
