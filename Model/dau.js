@@ -194,15 +194,15 @@ export default class Dau {
     this.job = this.setScheduleJob()
   }
 
-  async getStats () {
+  async getStats (time = this.today) {
     if (this.dauDB === 'level') {
       return this.stats
     } else {
       return {
-        receive_msg_count: await this.db.get('receive_msg_count') || 0,
-        send_msg_count: await this.db.get('send_msg_count') || 0,
-        user_count: (await this.scan(`Yz:count:receive:msg:user:${this.self_id}*:${moment().format('YYYY:MM:DD')}`)).length,
-        group_count: (await this.scan(`Yz:count:receive:msg:group:${this.self_id}*:${moment().format('YYYY:MM:DD')}`)).length,
+        receive_msg_count: await this.db.get(`receive_msg_count:${time}`) || 0,
+        send_msg_count: await this.db.get(`send_msg_count:${time}`) || 0,
+        user_count: (await this.scan(`Yz:count:receive:msg:user:${this.self_id}*:${moment(time).format('YYYY:MM:DD')}`)).length,
+        group_count: (await this.scan(`Yz:count:receive:msg:group:${this.self_id}*:${moment(time).format('YYYY:MM:DD')}`)).length,
         group_increase_count: Object.keys(this.group_increase).length,
         group_decrease_count: Object.keys(this.group_decrease).length
       }
@@ -427,7 +427,7 @@ export default class Dau {
       const path = join(process.cwd(), 'data', 'QQBotDAU')
       if (!fs.existsSync(path)) fs.mkdirSync(path)
       try {
-        const data = await this.getStats()
+        const data = await this.getStats(this.yesterday)
         data.time = this.yesterday
 
         await this.initData()
