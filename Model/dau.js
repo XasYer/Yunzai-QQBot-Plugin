@@ -134,11 +134,13 @@ export default class Dau {
     this.yesterday = getTime(-1)
     switch (this.dauDB) {
       case 'redis': {
+        const prefix = `QQBot:${this.self_id}:`
         this.db = {
           get: async (key) => {
-            const params = key.split(':')
-            if (params.length < 2) params.push(this.today)
-            const data = await redis.get(`QQBot:${params.join(':')}`)
+            key = key.split(':')
+            if (key.length < 2) key.push(this.today)
+            key = key.join(':')
+            const data = await redis.get(`${prefix}${key}`)
             switch (typeof data) {
               case 'number':
                 return data
@@ -153,13 +155,14 @@ export default class Dau {
             }
           },
           set: (key, data, expire) => {
-            const params = key.split(':')
-            if (params.length < 2) params.push(this.today)
+            key = key.split(':')
+            if (key.length < 2) key.push(this.today)
+            key = key.join(':')
             switch (key) {
               case 'call_stats':
               case 'group_decrease':
               case 'group_increase':
-                redis.set(`QQBot:${params.join(':')}`, JSON.stringify(data), expire ? { EX: expire * 24 * 60 * 60 } : undefined)
+                redis.set(`${prefix}${key}`, JSON.stringify(data), expire ? { EX: expire * 24 * 60 * 60 } : undefined)
                 break
               case 'dau_stats':
               case 'all_user':
@@ -169,7 +172,7 @@ export default class Dau {
                 break
               case 'receive_msg_count':
               case 'send_msg_count':
-                redis.incr(`QQBot:${params.join(':')}`)
+                redis.incr(`${prefix}${key}`)
                 break
               default:
                 break
@@ -275,10 +278,10 @@ export default class Dau {
         // call_stats: JSON.stringify(this.call_stats),
         totalDAU,
         yesterdayDau: yesterdayDau || {},
-        todayDAU: this.stats,
+        todayDAU: await this.getStats(),
         monthly: data.time,
-        groupNum: this.all_group.total,
-        userNum: this.all_user.total,
+        groupNum: this.all_group?.total || e.bot.gl.size,
+        userNum: this.all_user?.total || e.bot.fl.size,
         nickname: Bot[this.self_id].nickname,
         avatar: Bot[this.self_id].avatar,
         tplFile: `${_path}/plugins/QQBot-Plugin/resources/html/DAU/DAU.html`,
