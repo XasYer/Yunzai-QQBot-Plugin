@@ -1,6 +1,6 @@
 import { config } from '../config.js'
 import { randomUUID } from 'node:crypto'
-import { getDauChartData } from './api.js'
+import { getDauChartData, getWeekChartData, getcallStat } from './api.js'
 
 const path = '/qqbot'
 const corsOptions = {
@@ -68,21 +68,22 @@ const route = [
   {
     url: '/getHomeData',
     method: 'post',
-    response: ({ body: { token } }) => {
+    response: async ({ body: { token } }) => {
       const [accessToken, uin] = token.split('.')
-      const chartData = getDauChartData(uin)
       return {
         success: true,
         data: {
-          chartData
+          chartData: await getDauChartData(uin),
+          weekData: await getWeekChartData(uin),
+          callStat: await getcallStat(uin)
         }
       }
     }
   }
 ]
 for (const i of route) {
-  Bot.express[i.method](path + i.url, (req, res) => {
-    const result = i.response(req)
+  Bot.express[i.method](path + i.url, async (req, res) => {
+    const result = await i.response(req)
     res.setHeader('Content-Type', 'application/json')
     res.set(corsOptions)
     res.status(200).send(JSON.stringify(result))
