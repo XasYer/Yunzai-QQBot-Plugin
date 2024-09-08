@@ -155,10 +155,10 @@ export default class Dau {
             }
           },
           set: (key, data, expire) => {
-            key = key.split(':')
-            if (key.length < 2) key.push(this.today)
-            key = key.join(':')
-            switch (key) {
+            const params = key.split(':')
+            if (params.length < 2) params.push(this.today)
+            key = params.join(':')
+            switch (params[0]) {
               case 'call_stats':
               case 'group_decrease':
               case 'group_increase':
