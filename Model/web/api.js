@@ -53,9 +53,9 @@ export async function getWeekChartData (uin) {
   })
   return [
     {
-      userData: userData.slice(0, 7),
-      groupData: groupData.slice(0, 7),
-      weekData: weekData.slice(0, 7)
+      userData: userData.slice(userData.length - 7, userData.length),
+      groupData: groupData.slice(groupData.length - 7, groupData.length),
+      weekData: weekData.slice(weekData.length - 7, weekData.length)
     },
     {
       userData,
