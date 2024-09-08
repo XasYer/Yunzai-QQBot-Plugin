@@ -16,12 +16,15 @@ let { config, configSave } = await makeConfig('QQBot', {
   markdown: {
     template: 'abcdefghij'
   },
+  sendButton: true,
   customMD: {},
   mdSuffix: {},
   btnSuffix: {},
   filterLog: {},
   simplifiedSdkLog: false,
+  markdownImgScale: 1.0,
   sep: '',
+  dauDB: 'level',
   // dau: {
   //   enable: true,
   //   user_count: true,  // 上行消息人数
