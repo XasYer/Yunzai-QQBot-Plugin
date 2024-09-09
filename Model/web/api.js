@@ -8,26 +8,34 @@ export async function getDauChartData (uin) {
   return [
     {
       name: '今日活跃用户',
-      value: stats.user_count
+      value: stats.user_count,
+      total: data.dauDB === 'level' ? data.all_user?.total : Bot[uin].fl.size
       // TODO: 成长百分比
       // percent: ''
       // TODO: 近期数据
-    //   data: [stats.user_count]
+      //   data: [stats.user_count]
+
     },
     {
       name: '今日活跃群数',
-      value: stats.group_count
-    //   data: [stats.group_count]
+      value: stats.group_count,
+      total: data.dauDB === 'level' ? data.all_group?.total : Bot[uin].gl.size
     },
     {
       name: '接收消息数量',
       value: stats.receive_msg_count
-    //   data: [stats.receive_msg_count]
     },
     {
       name: '发送消息数量',
       value: stats.send_msg_count
-    //   data: [stats.send_msg_count]
+    },
+    {
+      name: '新增群数',
+      value: stats.group_increase_count
+    },
+    {
+      name: '减少群数',
+      value: stats.group_decrease_count
     }
   ]
 }
@@ -43,6 +51,8 @@ export async function getWeekChartData (uin) {
   const userData = []
   const groupData = []
   const weekData = []
+  const receiveMsgData = []
+  const sendMsgData = []
   data.coldata[1].forEach((v, i) => {
     if (i % 2 === 0) {
       userData.push(v.count)
@@ -51,16 +61,27 @@ export async function getWeekChartData (uin) {
       groupData.push(v.count)
     }
   })
+  data.linedata[0].forEach((v, i) => {
+    if (i % 2 === 0) {
+      receiveMsgData.push(v.linecount)
+    } else {
+      sendMsgData.push(v.linecount)
+    }
+  })
   return [
     {
       userData: userData.slice(userData.length - 7, userData.length),
       groupData: groupData.slice(groupData.length - 7, groupData.length),
-      weekData: weekData.slice(weekData.length - 7, weekData.length)
+      weekData: weekData.slice(weekData.length - 7, weekData.length),
+      receiveMsgData: receiveMsgData.slice(receiveMsgData.length - 7, receiveMsgData.length),
+      sendMsgData: sendMsgData.slice(sendMsgData.length - 7, sendMsgData.length)
     },
     {
       userData,
       groupData,
-      weekData
+      weekData,
+      receiveMsgData,
+      sendMsgData
     }
   ]
 }

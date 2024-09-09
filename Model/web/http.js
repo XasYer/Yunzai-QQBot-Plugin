@@ -86,7 +86,6 @@ for (const i of route) {
   Bot.express[i.method](path + i.url, async (req, res) => {
     const result = await i.response(req)
     res.setHeader('Content-Type', 'application/json')
-    res.set(corsOptions)
     res.status(200).send(JSON.stringify(result))
   })
 }
