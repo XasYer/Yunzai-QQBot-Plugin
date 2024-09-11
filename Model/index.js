@@ -3,7 +3,8 @@ import Level from './level.js'
 import { getTime, importJS, splitMarkDownTemplate, getMustacheTemplating } from './common.js'
 import Runtime from '../../../lib/plugins/runtime.js'
 import Handler from '../../../lib/plugins/handler.js'
-import makeConfig from '../../../lib/plugins/config.js'
+import { config, configSave, refConfig } from './config.js'
+import './web/http.js'
 
 export {
   Dau,
@@ -12,7 +13,9 @@ export {
   importJS,
   Runtime,
   Handler,
-  makeConfig,
   splitMarkDownTemplate,
-  getMustacheTemplating
+  getMustacheTemplating,
+  config,
+  configSave,
+  refConfig
 }

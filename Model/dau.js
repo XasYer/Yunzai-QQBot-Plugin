@@ -414,11 +414,11 @@ export default class Dau {
 
   getButton (user_id) {
     return segment.button([
-      { text: 'dau', callback: 'QQBotdau', permission: user_id },
-      { text: 'daupro', callback: 'QQBotdaupro', permission: user_id }
+      { text: 'dau', callback: '#QQBotdau', permission: user_id },
+      { text: 'daupro', callback: '#QQBotdaupro', permission: user_id }
     ], [
-      { text: '调用统计', callback: 'QQBot调用统计', permission: user_id },
-      { text: '用户统计', callback: 'QQBot用户统计', permission: user_id }
+      { text: '调用统计', callback: '#QQBot调用统计', permission: user_id },
+      { text: '用户统计', callback: '#QQBot用户统计', permission: user_id }
     ])
   }
 
