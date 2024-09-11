@@ -1,4 +1,4 @@
-import { config } from '../config.js'
+import { config, configSave } from '../config.js'
 import { randomUUID } from 'node:crypto'
 import { getDauChartData, getWeekChartData, getcallStat } from './api.js'
 
@@ -51,7 +51,8 @@ const route = [
           roles: ['admin'],
           accessToken: token[uin] + '.' + uin,
           refreshToken: token[uin] + ':refreshToken.' + uin,
-          expires: '2030/10/30 00:00:00'
+          expires: '2030/10/30 00:00:00',
+          uin: Number(uin)
         }
       }
     }
@@ -67,10 +68,10 @@ const route = [
     }
   },
   {
-    url: '/getHomeData',
+    url: '/get-home-data',
     method: 'post',
-    response: async ({ body: { token } }) => {
-      const [accessToken, uin] = token.split('.')
+    token: true,
+    response: async ({ body: { uin } }) => {
       return {
         success: true,
         data: {
@@ -80,12 +81,71 @@ const route = [
         }
       }
     }
+  },
+  {
+    url: '/get-setting-data',
+    method: 'post',
+    token: true,
+    response: () => {
+      let maxRetry = config.bot.maxRetry
+      if (maxRetry === Infinity) {
+        maxRetry = 0
+      }
+      return {
+        success: true,
+        data: {
+          ...config,
+          bot: {
+            ...config.bot,
+            maxRetry
+          }
+        }
+      }
+    }
+  },
+  {
+    url: '/set-setting',
+    method: 'post',
+    token: true,
+    response: async ({ body }) => {
+      const { data } = body
+      if (data.bot.maxRetry === 0) {
+        data.bot.maxRetry = Infinity
+      }
+      for (const key in data) {
+        config[key] = data[key]
+      }
+      try {
+        await configSave()
+        return {
+          success: true
+        }
+      } catch (error) {
+        return {
+          success: false,
+          message: error.message
+        }
+      }
+    }
   }
 ]
 for (const i of route) {
   Bot.express[i.method](path + i.url, async (req, res) => {
-    const result = await i.response(req)
-    res.setHeader('Content-Type', 'application/json')
-    res.status(200).send(JSON.stringify(result))
+    try {
+      if (i.token) {
+        const { token: t } = req.body
+        const [accessToken, uin] = t?.split('.') || []
+        if (!token[uin] && accessToken !== token[uin]) {
+          res.status(401).send('Unauthorized')
+          return
+        }
+        req.body.uin = String(uin)
+      }
+      const result = await i.response(req)
+      res.setHeader('Content-Type', 'application/json')
+      res.status(200).send(JSON.stringify(result))
+    } catch (error) {
+      res.status(500).send(error.message)
+    }
   })
 }
