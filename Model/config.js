@@ -50,12 +50,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   web: {
     password: {
       default: '123456'
-    },
-    cors: [
-      'http://localhost',
-      'http://127.0.0.1',
-      'https://gh.xasyer.icu'
-    ]
+    }
   }
 }, {
   tips: [

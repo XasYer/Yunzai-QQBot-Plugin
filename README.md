@@ -6,10 +6,6 @@ TRSS-Yunzai QQBot 适配器 插件
 
 </div>
 
-# dev
-
-功能不稳定,不建议使用
-
 # Tip
 
 建议使用TRSS原版,此版本为`个人自用`版,会在`任意时间`直接进行更改,且`不会`与TRSS一致
@@ -86,17 +82,23 @@ TRSS-Yunzai QQBot 适配器 插件
 13. `config/QQBot.yaml`中`markdownImgScale: 1`是否对markdown中的图片进行等比例缩放,0.5为缩小50%,1.5为放大50%,以此类推
 14. `config/QQBot.yaml`中`sendButton: true`未开启全局MD时是否单独发送按钮
 15. `config/QQBot.yaml`中`dauDB: level`选择存储dau数据的数据库,可选: `level`, `redis`,以及`false`关闭dau统计(不会保存当日数据)
-    - `level` 
+    - `level`
       - 优点: 统计了大部分数据
       - 缺点: 缓存存一份,level存一份
     - `redis`
       - 优点: 大部分使用redis存储,不会缓存
       - 缺点: 没有缓存所以有些没统计
+16. 增加web管理, 建议先通过`config.web.password`设置密码
+
+    - 可以自行拉取web分支部署
+    - 或使用公共地址: [http://gh.xasyer.icu/Yunzai-QQBot-Plugin](http://gh.xasyer.icu/Yunzai-QQBot-Plugin)
+
+    账号为QQbot的QQ号, 密码默认为123456, api地址为`http://你的ip:2536/qqbot`, 需要开放2536端口,2536可自行替换成对应端口
 
 ## 安装教程
 
 1. 准备：[TRSS-Yunzai](../../../Yunzai)
-2. 输入：`#安装QQBot-Plugin`
+2. ~~输入：`#安装QQBot-Plugin`~~
 3. 打开：[QQ 开放平台](https://q.qq.com) 创建 Bot：  
    ① 创建机器人  
    ② 开发设置 → 得到 `机器人QQ号:AppID:Token:AppSecret`
