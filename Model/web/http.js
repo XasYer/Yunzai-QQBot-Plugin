@@ -11,7 +11,10 @@ const corsOptions = {
 
 Bot.express.use(path + '/*', (req, res, next) => {
   res.set(corsOptions)
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin)
+  const origin = req.headers.origin
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+  }
   if (req.method === 'OPTIONS') return res.sendStatus(200)
   next()
 })
