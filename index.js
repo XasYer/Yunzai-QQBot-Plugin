@@ -1500,12 +1500,12 @@ export class QQBotAdapter extends plugin {
           reg: /^#q+bot(添加|删除)过滤日志/i,
           fnc: 'filterLog',
           permission: config.permission
+        },
+        {
+          reg: /^#q+bot一键群发$/i,
+          fnc: 'oneKeySendGroupMsg',
+          permission: config.permission
         }
-        // {
-        //   reg: /^#q+bot一键群发$/i,
-        //   fnc: 'oneKeySendGroupMsg',
-        //   permission: config.permission
-        // }
       ]
     })
   }
@@ -1623,32 +1623,34 @@ export class QQBotAdapter extends plugin {
     this.reply(msg, true)
   }
 
-  // 屎
-  // async oneKeySendGroupMsg () {
-  //   const msg = await importJS('Model/template/oneKeySendGroupMsg.js', 'default')
-  //   if (msg === false) {
-  //     this.reply('请先设置模版哦', true)
-  //   } else {
-  //     const groupList = this.e.bot.dau.getProp('all_group')
-  //     const getMsg = typeof msg === 'function' ? msg : () => msg
-  //     const errGroupList = []
-  //     for (const key in groupList) {
-  //       if (key === 'total') continue
-  //       const sendMsg = await getMsg(`${this.e.self_id}${this.e.bot.adapter.sep}${key}`)
-  //       if (!sendMsg?.length) continue
-  //       const sendRet = await this.e.bot.pickGroup(key).sendMsg(sendMsg)
-  //       if (sendRet.error.length) {
-  //         for (const i of sendRet.error) {
-  //           if (i.message.includes('机器人非群成员')) {
-  //             errGroupList.push(key)
-  //             break
-  //           }
-  //         }
-  //       }
-  //     }
-  //     if (errGroupList.length) await this.e.bot.dau.deleteNotExistGroup(errGroupList)
-  //   }
-  // }
+  async oneKeySendGroupMsg () {
+    if (this.e.adapter_name !== 'qqbot') return false
+    const msg = await importJS('Model/template/oneKeySendGroupMsg.js', 'default')
+    if (msg === false) {
+      this.reply('请先设置模版哦', true)
+    } else {
+      const groupList = this.e.bot.dau.dauDB === 'level' ? Object.keys(this.e.bot.dau.all_group) : [...this.e.bot.gl.keys()]
+      const getMsg = typeof msg === 'function' ? msg : () => msg
+      const errGroupList = []
+      for (const key of groupList) {
+        if (key === 'total') continue
+        const id = this.e.bot.dau.dauDB === 'level' ? `${this.e.self_id}${this.e.bot.adapter.sep}${key}` : key
+        const sendMsg = await getMsg(id)
+        if (!sendMsg?.length) continue
+        const sendRet = await this.e.bot.pickGroup(id).sendMsg(sendMsg)
+        if (sendRet.error.length) {
+          for (const i of sendRet.error) {
+            if (i.message.includes('机器人非群成员')) {
+              errGroupList.push(key)
+              break
+            }
+          }
+        }
+      }
+      if (errGroupList.length) await this.e.bot.dau.deleteNotExistGroup(errGroupList)
+      logger.info(logger.green(`QQBot ${this.e.self_id} 群消息一键发送完成，共${groupList.length - 1}个群，失败${errGroupList.length}个`))
+    }
+  }
 }
 
 const endTime = new Date()

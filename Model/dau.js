@@ -725,6 +725,7 @@ export default class Dau {
    * @param {string[]} groupIdList
    */
   async deleteNotExistGroup (groupIdList) {
+    if (this.dauDB !== 'level') return
     for (const i of groupIdList) {
       if (!this.all_group[i]) continue
       delete this.all_group[i]
