@@ -1,6 +1,7 @@
 import { config, configSave } from '../config.js'
 import { randomUUID } from 'node:crypto'
 import { getDauChartData, getWeekChartData, getcallStat } from './api.js'
+import moment from 'moment'
 
 const path = '/qqbot'
 const corsOptions = {
@@ -128,6 +129,44 @@ const route = [
           success: false,
           message: error.message
         }
+      }
+    }
+  },
+  {
+    url: '/get-redis-info',
+    method: 'post',
+    token: true,
+    response: async () => {
+      const data = await redis.info()
+      const redisInfo = {}
+      data.split('\n').forEach(line => {
+        if (line && !line.startsWith('#') && line.includes(':')) {
+          const index = line.indexOf(':')
+          const key = line.substring(0, index)
+          const value = line.substring(index + 1)
+          redisInfo[key.trim()] = value.trim()
+        }
+      })
+      const duration = moment.duration(redisInfo.uptime_in_seconds, 'seconds')
+      const days = Math.floor(duration.asDays())
+      const hours = duration.hours()
+      const minutes = duration.minutes()
+      const secs = duration.seconds()
+      const time = `${days}天${hours}时${minutes}分${secs}秒`
+      redisInfo.uptime_formatted = time
+      // for (let i = 0; i < 16; i++) {
+      //   if (redisInfo[`db${i}`]) {
+      //     const db = {}
+      //     redisInfo[`db${i}`].split(',').forEach(i => {
+      //       const [key, value] = i.split('=')
+      //       db[key.trim()] = value.trim()
+      //     })
+      //     redisInfo[`db${i}`] = db
+      //   }
+      // }
+      return {
+        success: true,
+        data: redisInfo
       }
     }
   }
