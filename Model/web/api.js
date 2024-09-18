@@ -98,3 +98,39 @@ export async function getcallStat (uin) {
     value: i.num
   }))
 }
+
+export async function getRedisKeys (sep = ':') {
+  function addKeyToTree (tree, parts, fullKey) {
+    if (parts.length === 0) return
+
+    const [firstPart, ...restParts] = parts
+    let node = tree.find((item) => item.label === firstPart)
+
+    const currentKey = fullKey ? `${fullKey}:${firstPart}` : firstPart
+
+    if (!node) {
+      node = {
+        label: firstPart,
+        key: currentKey,
+        children: []
+      }
+      tree.push(node)
+    }
+
+    addKeyToTree(node.children, restParts, currentKey)
+  }
+  const keysTree = []
+  let cursor = '0'
+  do {
+    const res = await redis.scan(cursor, { MATCH: '*', COUNT: 10000 })
+    cursor = res.cursor
+    const keys = res.keys
+
+    keys.forEach(key => {
+      const parts = key.split(sep)
+      addKeyToTree(keysTree, parts, '')
+    })
+  } while (cursor != 0)
+
+  return keysTree
+}

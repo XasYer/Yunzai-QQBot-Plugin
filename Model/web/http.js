@@ -1,6 +1,6 @@
 import { config, configSave } from '../config.js'
 import { randomUUID } from 'node:crypto'
-import { getDauChartData, getWeekChartData, getcallStat } from './api.js'
+import { getDauChartData, getWeekChartData, getcallStat, getRedisKeys } from './api.js'
 import moment from 'moment'
 
 const path = '/qqbot'
@@ -154,19 +154,91 @@ const route = [
       const secs = duration.seconds()
       const time = `${days}天${hours}时${minutes}分${secs}秒`
       redisInfo.uptime_formatted = time
-      // for (let i = 0; i < 16; i++) {
-      //   if (redisInfo[`db${i}`]) {
-      //     const db = {}
-      //     redisInfo[`db${i}`].split(',').forEach(i => {
-      //       const [key, value] = i.split('=')
-      //       db[key.trim()] = value.trim()
-      //     })
-      //     redisInfo[`db${i}`] = db
-      //   }
-      // }
       return {
         success: true,
         data: redisInfo
+      }
+    }
+  },
+  {
+    url: '/get-redis-keys',
+    method: 'post',
+    token: true,
+    response: async ({ body }) => {
+      const { sep } = body
+      const keys = await getRedisKeys(sep)
+      return {
+        success: true,
+        data: keys
+      }
+    }
+  },
+  {
+    url: '/get-redis-value',
+    method: 'post',
+    token: true,
+    response: async ({ body }) => {
+      const { key } = body
+      const value = await redis.get(key)
+      const expire = await redis.ttl(key)
+      return {
+        success: true,
+        data: {
+          key,
+          value,
+          expire
+        }
+      }
+    }
+  },
+  {
+    url: '/set-redis-value',
+    method: 'post',
+    token: true,
+    response: async ({ body: { key, value, newKey, expire } }) => {
+      if (newKey) {
+        await redis.rename(key, newKey)
+        key = newKey
+      }
+      if (expire === -2) {
+        await redis.sendCommand(['GETSET', key, value])
+      } else if (expire === -1) {
+        await redis.set(key, value)
+      } else {
+        await redis.set(key, value, { EX: expire })
+      }
+      return {
+        success: true,
+        data: {
+          key,
+          value
+        }
+      }
+    }
+  },
+  {
+    url: '/delete-redis-keys',
+    method: 'post',
+    token: true,
+    response: async ({ body }) => {
+      const { keys } = body
+      const errorKeys = []
+      const successKeys = []
+      for (const key of keys) {
+        try {
+          await redis.del(key)
+          successKeys.push(key)
+        } catch (error) {
+          logger.error(error)
+          errorKeys.push(key)
+        }
+      }
+      return {
+        success: true,
+        data: {
+          errorKeys,
+          successKeys
+        }
       }
     }
   }
@@ -187,6 +259,7 @@ for (const i of route) {
       res.setHeader('Content-Type', 'application/json')
       res.status(200).send(JSON.stringify(result))
     } catch (error) {
+      console.log('error', error)
       res.status(500).send(error.message)
     }
   })
