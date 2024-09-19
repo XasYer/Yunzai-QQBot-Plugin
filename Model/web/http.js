@@ -2,6 +2,7 @@ import { config, configSave } from '../config.js'
 import { randomUUID } from 'node:crypto'
 import { getDauChartData, getWeekChartData, getcallStat, getRedisKeys, formatBytes } from './api.js'
 import moment from 'moment'
+import os from 'os'
 
 const path = '/qqbot'
 const corsOptions = {
@@ -111,7 +112,7 @@ const route = [
         }
       }
       const {
-        currentLoad: { currentLoad },
+        currentLoad: { currentLoad: cpuCurrentLoad },
         cpu: { manufacturer, speed, cores },
         fullLoad,
         mem: { total, active, swaptotal, swapused }
@@ -123,38 +124,73 @@ const route = [
       })
 
       const getColor = (value) => {
-        if (value > 90) {
+        if (value >= 90) {
           return '#d56565'
-        } else if (value > 80) {
+        } else if (value >= 70) {
           return '#FFD700'
         } else {
           return '#73a9c6'
         }
       }
       const ramCurrentLoad = Math.round((active / total).toFixed(2) * 100)
-      const swapCurrentLoad = Math.round((swapused / swaptotal).toFixed(2) * 100)
-      const data = {
-        cpu: {
-          currentLoad: Math.round(currentLoad),
-          manufacturer,
-          cores,
-          speed,
-          fullLoad: Math.round(fullLoad),
-          color: getColor(currentLoad)
+      const data = [
+        {
+          title: 'CPU',
+          value: Math.round(cpuCurrentLoad),
+          color: getColor(cpuCurrentLoad),
+          info: [
+            `${manufacturer} ${cores}核 ${speed}GHz`,
+            `CPU满载率 ${Math.round(fullLoad)}%`
+          ]
         },
-        ram: {
-          currentLoad: ramCurrentLoad,
-          total: formatBytes(total),
-          active: formatBytes(active),
-          color: getColor(ramCurrentLoad)
-        },
-        swap: {
-          currentLoad: swapCurrentLoad,
-          total: formatBytes(swaptotal),
-          used: formatBytes(swapused),
-          color: getColor(swapCurrentLoad)
+        {
+          title: 'RAM',
+          value: ramCurrentLoad,
+          color: getColor(ramCurrentLoad),
+          info: [
+            `${formatBytes(active)} / ${formatBytes(total)}`
+          ]
         }
+      ]
+      if (swaptotal) {
+        const swapCurrentLoad = Math.round((swapused / swaptotal).toFixed(2) * 100)
+        data.push({
+          title: 'SWAP',
+          value: swapCurrentLoad,
+          color: getColor(swapCurrentLoad),
+          info: [
+            `${formatBytes(swapused)} / ${formatBytes(swaptotal)}`
+          ]
+        })
+      } else {
+        data.push({
+          title: 'SWAP',
+          value: 0,
+          color: '',
+          status: 'exception',
+          info: ['没有获取到数据']
+        })
       }
+
+      const memory = process.memoryUsage()
+      // 总共
+      const rss = formatBytes(memory.rss)
+      // 堆
+      const heapTotal = formatBytes(memory.heapTotal)
+      // 栈
+      const heapUsed = formatBytes(memory.heapUsed)
+      // 占用率
+      const occupy = (memory.rss / (os.totalmem() - os.freemem())).toFixed(2) * 100
+
+      data.push({
+        title: 'Node',
+        value: Math.round(occupy),
+        color: getColor(occupy),
+        info: [
+          `总 ${rss}`,
+          `${heapTotal} | ${heapUsed}`
+        ]
+      })
 
       const { controllers } = await si.graphics()
       const graphics = controllers?.find(item =>
@@ -165,14 +201,23 @@ const route = [
           vendor, temperatureGpu, utilizationGpu,
           memoryTotal, memoryUsed
         } = graphics
-        data.gpu = {
-          utilizationGpu: Math.round(utilizationGpu),
-          vendor,
-          temperatureGpu,
-          memoryTotal: (memoryTotal / 1024).toFixed(2),
-          memoryUsed: (memoryUsed / 1024).toFixed(2),
-          color: getColor(utilizationGpu)
-        }
+        data.push({
+          title: 'GPU',
+          value: Math.round(utilizationGpu),
+          color: getColor(utilizationGpu),
+          info: [
+            `${(memoryUsed / 1024).toFixed(2)}G / ${(memoryTotal / 1024).toFixed(2)}G`,
+            `${vendor} ${temperatureGpu}°C`
+          ]
+        })
+      } else {
+        data.push({
+          title: 'GPU',
+          value: 0,
+          color: '',
+          status: 'exception',
+          info: ['没有获取到数据']
+        })
       }
       return {
         success: true,
