@@ -1,6 +1,6 @@
 import { config, configSave } from '../config.js'
 import { randomUUID } from 'node:crypto'
-import { getDauChartData, getWeekChartData, getcallStat, getRedisKeys } from './api.js'
+import { getDauChartData, getWeekChartData, getcallStat, getRedisKeys, formatBytes } from './api.js'
 import moment from 'moment'
 
 const path = '/qqbot'
@@ -87,6 +87,100 @@ const route = [
     }
   },
   {
+    url: '/get-system-info',
+    method: 'post',
+    token: true,
+    response: async () => {
+      const si = await (async () => {
+        try {
+          return await import('systeminformation')
+        } catch (error) {
+          try {
+            // 看看椰奶有没有
+            return await import('../../../yenai-plugin/node_modules/systeminformation/lib/index.js')
+          } catch (error) {
+            return false
+          }
+        }
+      }
+      )()
+      if (!si) {
+        return {
+          success: false,
+          data: {}
+        }
+      }
+      const {
+        currentLoad: { currentLoad },
+        cpu: { manufacturer, speed, cores },
+        fullLoad,
+        mem: { total, active, swaptotal, swapused }
+      } = await si.get({
+        currentLoad: 'currentLoad',
+        cpu: 'manufacturer,speed,cores',
+        fullLoad: '*',
+        mem: 'total,active,swaptotal,swapused'
+      })
+
+      const getColor = (value) => {
+        if (value > 90) {
+          return '#d56565'
+        } else if (value > 80) {
+          return '#FFD700'
+        } else {
+          return '#73a9c6'
+        }
+      }
+      const ramCurrentLoad = Math.round((active / total).toFixed(2) * 100)
+      const swapCurrentLoad = Math.round((swapused / swaptotal).toFixed(2) * 100)
+      const data = {
+        cpu: {
+          currentLoad: Math.round(currentLoad),
+          manufacturer,
+          cores,
+          speed,
+          fullLoad: Math.round(fullLoad),
+          color: getColor(currentLoad)
+        },
+        ram: {
+          currentLoad: ramCurrentLoad,
+          total: formatBytes(total),
+          active: formatBytes(active),
+          color: getColor(ramCurrentLoad)
+        },
+        swap: {
+          currentLoad: swapCurrentLoad,
+          total: formatBytes(swaptotal),
+          used: formatBytes(swapused),
+          color: getColor(swapCurrentLoad)
+        }
+      }
+
+      const { controllers } = await si.graphics()
+      const graphics = controllers?.find(item =>
+        item.memoryUsed && item.memoryFree && item.utilizationGpu
+      )
+      if (graphics) {
+        const {
+          vendor, temperatureGpu, utilizationGpu,
+          memoryTotal, memoryUsed
+        } = graphics
+        data.gpu = {
+          utilizationGpu: Math.round(utilizationGpu),
+          vendor,
+          temperatureGpu,
+          memoryTotal: (memoryTotal / 1024).toFixed(2),
+          memoryUsed: (memoryUsed / 1024).toFixed(2),
+          color: getColor(utilizationGpu)
+        }
+      }
+      return {
+        success: true,
+        data
+      }
+    }
+  },
+  {
     url: '/get-setting-data',
     method: 'post',
     token: true,
@@ -165,8 +259,8 @@ const route = [
     method: 'post',
     token: true,
     response: async ({ body }) => {
-      const { sep } = body
-      const keys = await getRedisKeys(sep)
+      const { sep, lazy } = body
+      const keys = await getRedisKeys(sep, lazy)
       return {
         success: true,
         data: keys

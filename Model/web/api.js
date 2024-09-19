@@ -99,7 +99,7 @@ export async function getcallStat (uin) {
   }))
 }
 
-export async function getRedisKeys (sep = ':') {
+export async function getRedisKeys (sep = ':', lazy = false) {
   function addKeyToTree (tree, parts, fullKey) {
     if (parts.length === 0) return
 
@@ -122,15 +122,58 @@ export async function getRedisKeys (sep = ':') {
   const keysTree = []
   let cursor = '0'
   do {
-    const res = await redis.scan(cursor, { MATCH: '*', COUNT: 10000 })
+    const MATCH = !lazy ? '*' : sep ? `${sep}:*` : '*'
+    const res = await redis.scan(cursor, { MATCH, COUNT: 10000 })
     cursor = res.cursor
     const keys = res.keys
 
     keys.forEach(key => {
-      const parts = key.split(sep)
-      addKeyToTree(keysTree, parts, '')
+      if (lazy) {
+        if (sep) {
+          if (key.startsWith(sep + ':')) {
+            const remaining = key.substring(sep.length + 1)
+            const nextPart = remaining.split(':')[0]
+            if (nextPart && !keysTree.some(i => i.label === nextPart)) {
+              keysTree.push({
+                label: nextPart,
+                key: `${sep}:${nextPart}`,
+                children: []
+              })
+            }
+          }
+        } else {
+          if (key.includes(':')) {
+            const firstPart = key.split(':')[0]
+            if (!keysTree.some(i => i.label === firstPart)) {
+              keysTree.push({
+                label: firstPart,
+                key: firstPart,
+                children: []
+              })
+            }
+          } else if (!keysTree.some(i => i.label === key)) {
+            keysTree.push({
+              label: key,
+              key,
+              children: []
+            })
+          }
+        }
+      } else {
+        const parts = key.split(sep)
+        addKeyToTree(keysTree, parts, '')
+      }
     })
   } while (cursor != 0)
 
   return keysTree
+}
+
+export function formatBytes (bytes) {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  const size = parseFloat((bytes / Math.pow(k, i)).toFixed(2))
+  return `${size} ${sizes[i]}`
 }
