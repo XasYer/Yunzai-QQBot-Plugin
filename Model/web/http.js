@@ -1,8 +1,9 @@
 import { config, configSave } from '../config.js'
 import { randomUUID } from 'node:crypto'
-import { getDauChartData, getWeekChartData, getcallStat, getRedisKeys, formatBytes } from './api.js'
-import moment from 'moment'
+import { getDauChartData, getWeekChartData, getcallStat, getRedisKeys, formatBytes, formatDuration, getPluginNum } from './api.js'
 import os from 'os'
+import _ from 'lodash'
+import fs from 'fs'
 
 const path = '/qqbot'
 const corsOptions = {
@@ -92,6 +93,7 @@ const route = [
     method: 'post',
     token: true,
     response: async () => {
+      // from yenai-plugin
       const si = await (async () => {
         try {
           return await import('systeminformation')
@@ -113,12 +115,12 @@ const route = [
       }
       const {
         currentLoad: { currentLoad: cpuCurrentLoad },
-        cpu: { manufacturer, speed, cores },
+        cpu: { manufacturer, speed, cores, brand },
         fullLoad,
         mem: { total, active, swaptotal, swapused }
       } = await si.get({
         currentLoad: 'currentLoad',
-        cpu: 'manufacturer,speed,cores',
+        cpu: 'manufacturer,speed,cores,brand',
         fullLoad: '*',
         mem: 'total,active,swaptotal,swapused'
       })
@@ -133,7 +135,7 @@ const route = [
         }
       }
       const ramCurrentLoad = Math.round((active / total).toFixed(2) * 100)
-      const data = [
+      const visual = [
         {
           title: 'CPU',
           value: Math.round(cpuCurrentLoad),
@@ -154,7 +156,7 @@ const route = [
       ]
       if (swaptotal) {
         const swapCurrentLoad = Math.round((swapused / swaptotal).toFixed(2) * 100)
-        data.push({
+        visual.push({
           title: 'SWAP',
           value: swapCurrentLoad,
           color: getColor(swapCurrentLoad),
@@ -163,7 +165,7 @@ const route = [
           ]
         })
       } else {
-        data.push({
+        visual.push({
           title: 'SWAP',
           value: 0,
           color: '',
@@ -182,7 +184,7 @@ const route = [
       // 占用率
       const occupy = (memory.rss / (os.totalmem() - os.freemem())).toFixed(2) * 100
 
-      data.push({
+      visual.push({
         title: 'Node',
         value: Math.round(occupy),
         color: getColor(occupy),
@@ -196,12 +198,21 @@ const route = [
       const graphics = controllers?.find(item =>
         item.memoryUsed && item.memoryFree && item.utilizationGpu
       )
+
+      const info = []
+
+      info.push({ key: '操作系统', value: `${os.type()} ${os.arch()}` })
+      info.push({ key: '主机名称', value: os.hostname() })
+      info.push({ key: '系统版本', value: os.release() })
+      info.push({ key: '运行时间', value: formatDuration(os.uptime()) })
+      info.push({ key: 'CPU', value: manufacturer && brand && `${manufacturer} ${brand}` })
+
       if (graphics) {
         const {
           vendor, temperatureGpu, utilizationGpu,
-          memoryTotal, memoryUsed
+          memoryTotal, memoryUsed, model
         } = graphics
-        data.push({
+        visual.push({
           title: 'GPU',
           value: Math.round(utilizationGpu),
           color: getColor(utilizationGpu),
@@ -210,8 +221,9 @@ const route = [
             `${vendor} ${temperatureGpu}°C`
           ]
         })
+        info.push({ key: 'GPU', value: model })
       } else {
-        data.push({
+        visual.push({
           title: 'GPU',
           value: 0,
           color: '',
@@ -219,9 +231,37 @@ const route = [
           info: ['没有获取到数据']
         })
       }
+      info.push({ key: '插件数量', value: getPluginNum() })
+
+      try {
+        const packageFile = JSON.parse(fs.readFileSync('./package.json', 'utf-8'))
+        info.push({ key: 'TRSS-Yunzai', value: packageFile.version })
+      } catch (error) {
+
+      }
+      const { node, v8, git } = await si.versions('node,v8,git')
+
+      info.push({ key: 'Node', value: node })
+      info.push({ key: 'V8', value: v8 })
+      info.push({ key: 'Git', value: git })
+
+      const HardDisk = _.uniqWith(await si.fsSize(),
+        (a, b) =>
+          a.used === b.used && a.size === b.size && a.use === b.use && a.available === b.available
+      ).filter(item => item.size && item.used && item.available && item.use)
       return {
         success: true,
-        data
+        data: {
+          visual,
+          fsSize: HardDisk.map(item => {
+            item.used = formatBytes(item.used)
+            item.size = formatBytes(item.size)
+            item.use = Math.round(item.use)
+            item.color = getColor(item.use)
+            return item
+          }),
+          info: info.filter(i => i.value)
+        }
       }
     }
   },
@@ -286,13 +326,7 @@ const route = [
           redisInfo[key.trim()] = value.trim()
         }
       })
-      const duration = moment.duration(redisInfo.uptime_in_seconds, 'seconds')
-      const days = Math.floor(duration.asDays())
-      const hours = duration.hours()
-      const minutes = duration.minutes()
-      const secs = duration.seconds()
-      const time = `${days}天${hours}时${minutes}分${secs}秒`
-      redisInfo.uptime_formatted = time
+      redisInfo.uptime_formatted = formatDuration(redisInfo.uptime_in_seconds)
       return {
         success: true,
         data: redisInfo

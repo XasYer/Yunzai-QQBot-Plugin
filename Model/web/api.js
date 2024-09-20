@@ -1,6 +1,7 @@
 import fs from 'fs'
 import { join } from 'path'
 import _ from 'lodash'
+import moment from 'moment'
 
 export async function getDauChartData (uin) {
   const data = Bot[uin].dau
@@ -176,4 +177,45 @@ export function formatBytes (bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   const size = parseFloat((bytes / Math.pow(k, i)).toFixed(2))
   return `${size}${sizes[i]}`
+}
+
+export function formatDuration (inp, unit = 'seconds') {
+  const duration = moment.duration(inp, unit)
+
+  const days = duration.days()
+  const hours = duration.hours()
+  const minutes = duration.minutes()
+  const secs = duration.seconds()
+
+  let formatted = ''
+  if (days > 0) formatted += `${days}天`
+  if (hours > 0) formatted += `${hours}时`
+  if (minutes > 0) formatted += `${minutes}分`
+  if (secs > 0 || formatted === '') formatted += `${secs}秒`
+
+  return formatted.trim()
+}
+
+export function getPluginNum () {
+  // 获取插件数量插件包目录包含package.json才被视为一个插件包
+  const dir = './plugins'
+  const dirArr = fs.readdirSync(dir, { withFileTypes: true })
+  const exc = ['example']
+  const plugin = dirArr.filter(i =>
+    i.isDirectory() &&
+    fs.existsSync(join(dir, i.name, 'package.json')) &&
+    !exc.includes(i.name)
+  )
+  const plugins = plugin?.length
+  // 获取js插件数量，以.js结尾的文件视为一个插件
+  const jsDir = join(dir, 'example')
+  let js = 0
+  try {
+    js = fs.readdirSync(jsDir)
+      ?.filter(item => item.endsWith('.js'))
+      ?.length
+  } catch (error) {
+    logger.debug(error)
+  }
+  return `${plugins ?? 0} plugins | ${js ?? 0} js`
 }
