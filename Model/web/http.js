@@ -1,6 +1,15 @@
 import { config, configSave } from '../config.js'
 import { randomUUID } from 'node:crypto'
-import { getDauChartData, getWeekChartData, getcallStat, getRedisKeys, formatBytes, formatDuration, getPluginNum } from './api.js'
+import {
+  getDauChartData,
+  getWeekChartData,
+  getcallStat,
+  getRedisKeys,
+  formatBytes,
+  formatDuration,
+  getPluginNum,
+  executeCommand
+} from './api.js'
 import os from 'os'
 import _ from 'lodash'
 import fs from 'fs'
@@ -437,3 +446,75 @@ for (const i of route) {
     }
   })
 }
+
+const terminalWsPath = 'qqbot-ws-terminal'
+
+if (!Array.isArray(Bot.wsf[terminalWsPath])) { Bot.wsf[terminalWsPath] = [] }
+Bot.wsf[terminalWsPath].push((ws, req, socket) => {
+  let childProcess
+  let isAuthenticated = false
+  setTimeout(() => {
+    if (!isAuthenticated) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }))
+      ws.close()
+    }
+  }, 5000)
+  ws.on('message', message => {
+    let data
+    try {
+      data = JSON.parse(message)
+    } catch (error) {
+      ws.send(JSON.stringify({ type: 'error', success: false, content: 'Invalid message format' }))
+      return
+    }
+    const { command, args, action, workingDirectory } = data
+    if (!isAuthenticated && action !== 'create') return
+    switch (action) {
+      case 'execute':
+        if (childProcess) {
+          childProcess.kill('SIGINT')
+        }
+        childProcess = executeCommand(command, args, ws, workingDirectory)
+        break
+      // 中断命令
+      case 'terminate':
+        if (childProcess) {
+          childProcess.kill('SIGINT') // 发送中断信号
+          childProcess = null // 清除子进程引用
+          ws.send(JSON.stringify({ type: 'terminated', content: '命令已中断' }))
+        }
+        break
+      // 心跳
+      case 'ping':
+        ws.send(JSON.stringify({ type: 'ping', content: 'pong' }))
+        break
+      // 鉴权
+      case 'create': {
+        const [accessToken, uin] = command.split('.')
+        if (accessToken !== token[uin]) {
+          ws.send(JSON.stringify({ type: 'auth', success: false, content: 'Authentication failed' }))
+          socket.destroy()
+        } else {
+          ws.send(JSON.stringify({ type: 'auth', success: true, content: 'Authentication success', path: process.cwd() }))
+          isAuthenticated = true
+        }
+        break
+      }
+      default:
+        break
+    }
+  })
+  ws.on('close', () => {
+    console.log('close')
+    if (childProcess) {
+      childProcess.kill('SIGINT')
+      childProcess = null
+    }
+  })
+  ws.on('error', () => {
+    if (childProcess) {
+      childProcess.kill('SIGINT')
+      childProcess = null
+    }
+  })
+})

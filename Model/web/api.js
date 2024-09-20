@@ -1,7 +1,9 @@
 import fs from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import _ from 'lodash'
 import moment from 'moment'
+import os from 'os'
+import { spawn, execSync } from 'child_process'
 
 export async function getDauChartData (uin) {
   const data = Bot[uin].dau
@@ -218,4 +220,42 @@ export function getPluginNum () {
     logger.debug(error)
   }
   return `${plugins ?? 0} plugins | ${js ?? 0} js`
+}
+
+export function executeCommand (command, args, ws, workingDirectory = './') {
+  const isWindows = os.platform() === 'win32'
+  const shell = isWindows ? 'powershell.exe' : true
+  if (isWindows) {
+    execSync('chcp 65001')
+  }
+  // 处理目录移动
+  if (command === 'cd') {
+    const directory = join(workingDirectory, args[0] || '')
+    if (fs.existsSync(directory)) {
+      ws.send(JSON.stringify({ type: 'directory', content: resolve(directory), origin: { command, args } }))
+      ws.send(JSON.stringify({ type: 'close', content: '进程退出码: 0', origin: { command, args } }))
+      return null
+    }
+  }
+  const res = spawn(command, args, {
+    cwd: workingDirectory,
+    shell,
+    encoding: 'utf-8',
+    env: { ...process.env, LANG: 'zh-CN.UTF-8' }
+  })
+  if (res?.stdout && res?.stderr) {
+    res.stdout.on('data', (data) => {
+      ws.send(JSON.stringify({ type: 'output', content: data.toString(), origin: { command, args } }))
+    })
+    res.stderr.on('data', (data) => {
+      ws.send(JSON.stringify({ type: 'error', content: data.toString(), origin: { command, args } }))
+    })
+    res.on('error', (error) => {
+      ws.send(JSON.stringify({ type: 'error', content: `Error: ${error.message}`, origin: { command, args } }))
+    })
+    res.on('close', (code) => {
+      ws.send(JSON.stringify({ type: 'close', content: `进程退出码: ${code}`, origin: { command, args } }))
+    })
+  }
+  return res
 }
