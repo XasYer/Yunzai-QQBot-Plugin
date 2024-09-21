@@ -49,13 +49,15 @@ export default {
       url: '/terminal',
       function: (ws, req, socket, head) => {
         let childProcess
-        let isAuthenticated = false
-        setTimeout(() => {
-          if (!isAuthenticated) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }))
+        if (req.headers?.['sec-websocket-protocol']) {
+          const [accessToken, uin] = req.headers['sec-websocket-protocol'].split('.')
+          if (accessToken !== getToken(uin)) {
+            ws.send('Authentication failed.')
             ws.close()
+          } else {
+            ws.send(JSON.stringify({ type: 'directory', content: process.cwd() }))
           }
-        }, 5000)
+        }
         ws.on('message', message => {
           let data
           try {
@@ -65,7 +67,6 @@ export default {
             return
           }
           const { command, args, action, workingDirectory } = data
-          if (!isAuthenticated && action !== 'create') return
           switch (action) {
             case 'execute':
               if (childProcess) {
@@ -85,18 +86,6 @@ export default {
             case 'ping':
               ws.send(JSON.stringify({ type: 'ping', content: 'pong' }))
               break
-              // 鉴权
-            case 'create': {
-              const [accessToken, uin] = command.split('.')
-              if (accessToken !== getToken(uin)) {
-                ws.send(JSON.stringify({ type: 'auth', success: false, content: 'Authentication failed' }))
-                ws.close()
-              } else {
-                ws.send(JSON.stringify({ type: 'auth', success: true, content: 'Authentication success', path: process.cwd() }))
-                isAuthenticated = true
-              }
-              break
-            }
             default:
               break
           }

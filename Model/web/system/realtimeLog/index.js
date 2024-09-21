@@ -1,0 +1,86 @@
+import _ from 'lodash'
+import moment from 'moment'
+import { getToken } from '../../login/index.js'
+
+const originalLogger = _.cloneDeep(global.logger)
+
+const logger = { logger: {} }
+
+const console = {}
+
+const logMethods = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'mark']
+
+function proxyLogger (method, ws) {
+  if (!logger[method]) {
+    logger[method] = originalLogger[method].bind(originalLogger)
+  }
+  if (!logger.logger[method]) {
+    logger.logger[method] = originalLogger.logger[method].bind(originalLogger.logger)
+  }
+
+  global.logger[method] = (...logs) => {
+    if (method !== 'info') {
+      ws.send(JSON.stringify({ type: 'logger', level: method, logs: [global.logger.blue('[TRSSYz]'), ...logs], timestamp: moment().format('HH:mm:ss.SSS') }))
+    }
+
+    return logger[method](...logs)
+  }
+
+  global.logger?.logger && (global.logger.logger[method] = (...logs) => {
+    ws.send(JSON.stringify({ type: 'logger', level: method, logs, timestamp: moment().format('HH:mm:ss.SSS') }))
+
+    return logger.logger[method](...logs)
+  })
+
+  global.console[method] = (...logs) => {
+    ws.send(JSON.stringify({ type: 'console', level: method, logs }))
+
+    return console[method](...logs)
+  }
+}
+
+function unproxyLogger (method) {
+  global.logger[method] = originalLogger[method].bind(originalLogger)
+  if (global.logger?.logger) {
+    global.logger.logger[method] = originalLogger.logger[method].bind(originalLogger.logger)
+  }
+}
+
+export default {
+  ws: [
+    {
+      url: '/realtimeLog',
+      function: (ws, req, socket, head) => {
+        if (req.headers?.['sec-websocket-protocol']) {
+          const [accessToken, uin] = req.headers['sec-websocket-protocol'].split('.')
+          if (accessToken !== getToken(uin)) {
+            ws.send('Authentication failed.')
+            ws.close()
+          } else {
+            logMethods.forEach((method) => proxyLogger(method, ws))
+          }
+        }
+        ws.on('message', message => {
+          let data
+          try {
+            data = JSON.parse(message)
+          } catch (error) {
+            ws.send(JSON.stringify({ type: 'error', success: false, content: 'Invalid message format' }))
+            return
+          }
+          const { action } = data
+          switch (action) {
+            // 心跳
+            case 'ping':
+              ws.send(JSON.stringify({ type: 'ping', content: 'pong' }))
+              break
+            default:
+              break
+          }
+        })
+        ws.on('close', () => logMethods.forEach((method) => unproxyLogger(method, ws)))
+        ws.on('error', () => logMethods.forEach((method) => unproxyLogger(method, ws)))
+      }
+    }
+  ]
+}
