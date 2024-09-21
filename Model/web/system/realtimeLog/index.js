@@ -6,8 +6,6 @@ const originalLogger = _.cloneDeep(global.logger)
 
 const logger = { logger: {} }
 
-const console = {}
-
 const logMethods = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'mark']
 
 function proxyLogger (method, ws) {
@@ -31,12 +29,6 @@ function proxyLogger (method, ws) {
 
     return logger.logger[method](...logs)
   })
-
-  global.console[method] = (...logs) => {
-    ws.send(JSON.stringify({ type: 'console', level: method, logs }))
-
-    return console[method](...logs)
-  }
 }
 
 function unproxyLogger (method) {
