@@ -1,6 +1,7 @@
 import fs from 'fs'
-import { join, dirname, basename } from 'path'
+import { fileURLToPath } from 'url'
 import { getToken } from './login/index.js'
+import { join, dirname, basename } from 'path'
 
 const httpPath = '/qqbot'
 const wsPath = 'qqbot'
@@ -34,7 +35,7 @@ async function loadRoutes (directory) {
       await loadRoutes(fullPath)
     } else if (stat.isFile() && item === 'index.js' && basename(dirname(fullPath)) !== 'web') {
       try {
-        const { http, ws } = (await import(`file://${process.cwd()}/${fullPath}`)).default
+        const { http, ws } = (await import(`file://${fullPath}`)).default
         if (http?.length) {
           httpRoute.push(...http)
         }
@@ -48,7 +49,10 @@ async function loadRoutes (directory) {
   }
 }
 
-await loadRoutes('plugins/QQBot-Plugin/Model/web')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+await loadRoutes(__dirname)
 
 if (!Array.isArray(Bot.wsf[wsPath])) { Bot.wsf[wsPath] = [] }
 
