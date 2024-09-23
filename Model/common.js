@@ -54,7 +54,7 @@ function splitMarkDownTemplate (str) {
     }
   }
 
-  return result
+  return result.filter(Boolean)
 }
 
 function getMustacheTemplating (template, context) {
