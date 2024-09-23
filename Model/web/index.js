@@ -49,7 +49,7 @@ async function loadRoutes (directory) {
   }
 }
 
-await loadRoutes(join(pluginPath, 'model', 'web'))
+await loadRoutes(join(pluginPath, 'Model', 'web'))
 
 if (!Array.isArray(Bot.wsf[wsPath])) { Bot.wsf[wsPath] = [] }
 
