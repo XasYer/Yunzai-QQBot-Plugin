@@ -1,7 +1,7 @@
 import fs from 'fs'
-import { fileURLToPath } from 'url'
 import { getToken } from './login/index.js'
 import { join, dirname, basename } from 'path'
+import { pluginPath } from '../common.js'
 
 const httpPath = '/qqbot'
 const wsPath = 'qqbot'
@@ -49,10 +49,7 @@ async function loadRoutes (directory) {
   }
 }
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-await loadRoutes(__dirname)
+await loadRoutes(join(pluginPath, 'model', 'web'))
 
 if (!Array.isArray(Bot.wsf[wsPath])) { Bot.wsf[wsPath] = [] }
 

@@ -1,27 +1,9 @@
-import { join } from 'path'
-import { randomUUID } from 'node:crypto'
-import fs from 'node:fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
-for (const i of ['groupIncreaseMsg', 'markdownTemplate']) {
-  const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model')
-  const oldPath = join(path, i + '.js')
-  const newPath = join(path, 'template', i + '.js')
-  const oldTempPath = join(path, i + '_default.js')
-  if (fs.existsSync(oldPath)) {
-    try {
-      fs.renameSync(oldPath, newPath)
-    } catch (error) {
-      console.log('移动旧文件时出现错误', error)
-    }
-  }
-  if (fs.existsSync(oldTempPath)) {
-    try {
-      fs.unlinkSync(oldTempPath)
-    } catch (error) {
-      console.log('删除旧文件时出现错误', error)
-    }
-  }
-}
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const pluginPath = join(__dirname, '..')
 
 /**
  * 获得指定日期的日期字符串
@@ -43,48 +25,50 @@ function getTime (day = 0) {
  */
 async function importJS (path, funcOrVarName) {
   try {
-    const module = await import('file://' + join(process.cwd(), 'plugins', 'QQBot-Plugin', path))
+    const module = await import('file://' + join(pluginPath, path))
     return funcOrVarName ? module[funcOrVarName] : module
   } catch (error) {
     return false
   }
 }
 
+const delimiters = ['<', ']', '*', '``', '`', '~', '#', '_']
+const regex = new RegExp(`(${delimiters.map(d => `\\${d}`).join('|')})`)
 /**
  * 分割MD模版参数
  * @param {*} text 需要分割的字符串
  * @returns 分割后的数组
  */
-function splitMarkDownTemplate (text) {
-  const rand = randomUUID()
-  const regexList = [
-    /(!?\[.*?\])(\s*\(.*?\))/,
-    /(\[.*?\])(\[.*?\])/,
-    /(\*)([^*]+?\*)()/,
-    /(`)([^`]+?`)()/,
-    /(_)([^_]*?_)()/,
-    /(~)(~)/,
-    /^(#)()/,
-    /(``)(`)/
-  ]
-  for (const reg of regexList) {
-    for (const match of text.match(new RegExp(reg, 'g')) || []) {
-      const tmp = reg.exec(match)
-      text = text.replace(tmp[0], tmp.slice(1).join(rand))
+function splitMarkDownTemplate (str) {
+  const parts = str.split(regex)
+
+  const result = []
+
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) {
+      let chunk = parts[i]
+      if (i + 1 < parts.length) {
+        chunk += parts[i + 1]
+      }
+      result.push(chunk)
     }
   }
-  return text.split(rand)
+
+  return result
 }
 
 function getMustacheTemplating (template, context) {
+  let func = null
   try {
     // eslint-disable-next-line no-new-func
-    const func = new Function('context', `
+    func = new Function('context', `
       with(context) {
         return \`${template.replace(/\{\{([^}]+)\}\}/g, '${$1}')}\`;
       }
     `)
-    return func(context).replace(/\n/g, '\r')
+    const result = func(context).replace(/\n/g, '\r')
+    func = null
+    return result
   } catch (error) {
     logger.error(`getMustacheTemplating error: ${error}`)
     return ''
@@ -92,6 +76,7 @@ function getMustacheTemplating (template, context) {
 }
 
 export {
+  pluginPath,
   getTime,
   importJS,
   splitMarkDownTemplate,
