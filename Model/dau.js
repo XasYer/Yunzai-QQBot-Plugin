@@ -36,95 +36,6 @@ export default class Dau {
     this.dauDB = dauDB
   }
 
-  stats
-  message_id_cache = {}
-  call_stats
-  /**
-   * 今日新增群
-   * @type {{[key:string]:number}}
-   */
-  group_increase
-  /**
-   * 今日减少群
-   * @type {{[key:string]:number}}
-   */
-  group_decrease
-  /**
-   * 今日新增用户
-   * @type {Array<string>}
-   */
-  user_increase
-  /**
-   * 定时任务
-   */
-  job
-  /**
-   * 今天的日期
-   * @type {string}
-   */
-  today
-  /**
-   * 昨天的日期
-   * @type {string}
-   */
-  yesterday
-  today_user_data
-  yestoday_user_data
-  /**
-   * 所有用户
-   * @type {{total: number, [key:string] : {receive_msg_count: number, send_msg_count: number, call_stats: {total: number,[key:string]: number}}}
-   */
-  all_user
-  /**
-   * 所有群聊
-   * @type {{total: number, [key:string] : {receive_msg_count: number, send_msg_count: number, call_stats: {total: number,[key:string]: number}}}}
-   */
-  all_group
-  /**
-   * 所有群员
-   * @type {{[key:string] : {total: number, [key:string] : {receive_msg_count: number, send_msg_count: number, call_stats: {total: number,[key:string]: number}}}}}
-   */
-  all_group_member
-
-  /**
-   * 动态读取参数
-   * @param {'stats'|'message_id_cache'|'call_stats'|'group_increase'|'group_decrease'|'today'|'yesterday'|'job'|'today_user_data'|'yestoday_user_data'|'user_increase'|'all_user'|'all_group'|'all_group_member'} key
-   */
-  getProp (key) {
-    switch (key) {
-      case 'stats':
-        return this.stats
-      case 'message_id_cache':
-        return this.message_id_cache
-      case 'call_stats':
-        return this.call_stats
-      case 'group_increase':
-        return this.group_increase
-      case 'group_decrease':
-        return this.group_decrease
-      case 'user_increase':
-        return this.user_increase
-      case 'today':
-        return this.today
-      case 'yesterday':
-        return this.yesterday
-      case 'today_user_data':
-        return this.today_user_data
-      case 'yestoday_user_data':
-        return this.yestoday_user_data
-      case 'job':
-        return this.job
-      case 'all_user':
-        return this.all_user
-      case 'all_group':
-        return this.all_group
-      case 'all_group_member':
-        return this.all_group_member
-      default:
-        return {}
-    }
-  }
-
   /**
    * 对数据初始化
    */
@@ -189,6 +100,10 @@ export default class Dau {
       }
       default:
         this.dauDB = false
+        this.db = {
+          get: () => { },
+          set: () => { }
+        }
         return false
     }
     await this.initData()
@@ -206,8 +121,8 @@ export default class Dau {
         send_msg_count: await this.db.get(`send_msg_count:${time}`) || 0,
         user_count: (await this.scan(`Yz:count:receive:msg:user:${this.self_id}*:${moment(time).format('YYYY:MM:DD')}`)).length,
         group_count: (await this.scan(`Yz:count:receive:msg:group:${this.self_id}*:${moment(time).format('YYYY:MM:DD')}`)).length,
-        group_increase_count: Object.keys(this.group_increase).length,
-        group_decrease_count: Object.keys(this.group_decrease).length
+        group_increase_count: Object.keys(this.group_increase || {}).length,
+        group_decrease_count: Object.keys(this.group_decrease || {}).length
       }
     }
   }
@@ -475,7 +390,7 @@ export default class Dau {
 
   async initData () {
     if (this.dauDB == 'level') {
-    // 用户和群统计
+      // 用户和群统计
       this.today_user_data = await this.getDB('user_group_stats') || { user: {}, group: {} }
       this.yestoday_user_data = await this.getDB('user_group_stats', this.yesterday) || { user: {}, group: {} }
 
@@ -502,6 +417,7 @@ export default class Dau {
       this.group_increase = await this.getDB('group_increase') || {}
       this.call_stats = await this.getDB('call_stats') || {}
     }
+    this.message_id_cache = {}
   }
 
   toDauMsg (data, num = 0) {
@@ -551,12 +467,12 @@ export default class Dau {
         }
       case 'group_increase':
         if (this.dauDB === 'level') {
-          if (!this.getProp(type)[group_id]) {
+          if (!this.group_increase[group_id]) {
             this.stats[key]++
-            this.getProp(type)[group_id] = 0
+            this.group_increase[group_id] = 0
           }
-          this.getProp(type)[group_id]++
-          this.setDB(type, this.getProp(type), 2)
+          this.group_increase(type)[group_id]++
+          this.setDB(type, this.group_increase(type), 2)
         } else {
           if (!this.group_increase[group_id]) {
             this.group_increase[group_id] = 0
@@ -571,7 +487,7 @@ export default class Dau {
 
   async setLogFnc (user_id, group_id, logFnc, message_id) {
     if (!logFnc) return
-    let logReg = /\[.*?\[(.*?\))\]/
+    const logReg = /\[.*?\[(.*?\))\]/
     if (logReg.test(logFnc)) logFnc = `[${logFnc.match(logReg)[1]}]`
 
     // 每个消息只记录一次

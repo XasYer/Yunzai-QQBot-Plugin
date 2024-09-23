@@ -81,7 +81,7 @@ TRSS-Yunzai QQBot 适配器 插件
 12. ~~`#QQBot一键群发`: 需要先配置模版 `template/oneKeySendGroupMsg_default.js`~~
 13. `config/QQBot.yaml`中`markdownImgScale: 1`是否对markdown中的图片进行等比例缩放,0.5为缩小50%,1.5为放大50%,以此类推
 14. `config/QQBot.yaml`中`sendButton: true`未开启全局MD时是否单独发送按钮
-15. `config/QQBot.yaml`中`dauDB: level`选择存储dau数据的数据库,可选: `level`, `redis`,以及`false`关闭dau统计(不会保存当日数据)
+15. `config/QQBot.yaml`中`dauDB: level`选择存储dau数据的数据库,可选: `level`, `redis`,以及`false`关闭dau统计(仅每日发言用户和群)
     - `level`
       - 优点: 统计了大部分数据
       - 缺点: 缓存存一份,level存一份
