@@ -1,5 +1,6 @@
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { ulid } from 'ulid'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -32,29 +33,29 @@ async function importJS (path, funcOrVarName) {
   }
 }
 
-const delimiters = ['<', ']', '*', '``', '`', '~', '#', '_']
-const regex = new RegExp(`(${delimiters.map(d => `\\${d}`).join('|')})`)
 /**
  * 分割MD模版参数
  * @param {*} text 需要分割的字符串
  * @returns 分割后的数组
  */
-function splitMarkDownTemplate (str) {
-  const parts = str.split(regex)
+function splitMarkDownTemplate (text) {
+  const rand = ulid()
+  const regexList = [
+    /(!?\[.*?\])(\s*\(.*?\))/g,
+    /(\[.*?\])(\[.*?\])/g,
+    /(\*)([^*]+?\*)/g,
+    /(`)([^`]+?`)/g,
+    /(_)([^_]*?_)/g,
+    /(~)(~)/g,
+    /^(#)/g,
+    /(``)(`)/g
+  ]
 
-  const result = []
+  regexList.forEach(reg => {
+    text = text.replace(reg, (match, ...groups) => groups.slice(0, -2).join(rand))
+  })
 
-  for (let i = 0; i < parts.length; i++) {
-    if (i % 2 === 0) {
-      let chunk = parts[i]
-      if (i + 1 < parts.length) {
-        chunk += parts[i + 1]
-      }
-      result.push(chunk)
-    }
-  }
-
-  return result.filter(Boolean)
+  return text.split(rand)
 }
 
 function getMustacheTemplating (template, context) {
