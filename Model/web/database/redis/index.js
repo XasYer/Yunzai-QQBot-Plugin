@@ -1,4 +1,4 @@
-import { formatDuration } from '../../utils.js'
+import { formatDuration } from '../../../common.js'
 
 export async function getRedisKeys (sep = ':', lazy = false) {
   function addKeyToTree (tree, parts, fullKey) {

@@ -53,26 +53,34 @@ await loadRoutes(join(pluginPath, 'Model', 'web'))
 
 if (!Array.isArray(Bot.wsf[wsPath])) { Bot.wsf[wsPath] = [] }
 
+const authenticate = (req, res, next, i) => {
+  if (!i.token) return next()
+  const token = req.headers?.authorization?.replace('Bearer ', '')
+  const [accessToken, uin] = token?.split('.') || []
+  if (!getToken(uin) || accessToken !== getToken(uin)) {
+    return res.status(401).send('Unauthorized')
+  }
+  req.body.uin = String(uin)
+  next()
+}
+
 for (const i of httpRoute) {
-  Bot.express[i.method](httpPath + i.url, async (req, res) => {
-    try {
-      if (i.token) {
-        const { token: t } = req.body
-        const [accessToken, uin] = t?.split('.') || []
-        if (!getToken(uin) && accessToken !== getToken(uin)) {
-          res.status(401).send('Unauthorized')
-          return
+  Bot.express[i.method](
+    httpPath + i.url,
+    (req, res, next) => authenticate(req, res, next, i),
+    (i.handler ? i.handler : (req, res, next) => next()),
+    async (req, res) => {
+      try {
+        const result = await i.response(req, res)
+        if (!i.contentType) {
+          res.setHeader('Content-Type', 'application/json')
+          res.status(200).send(JSON.stringify(result))
         }
-        req.body.uin = String(uin)
+      } catch (error) {
+        res.status(500).send(error.message)
       }
-      const result = await i.response(req)
-      res.setHeader('Content-Type', 'application/json')
-      res.status(200).send(JSON.stringify(result))
-    } catch (error) {
-      console.log('error', error)
-      res.status(500).send(error.message)
     }
-  })
+  )
 }
 for (const i of wsRoute) {
   Bot.wsf[wsPath].push((ws, req, socket, head) => {

@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import _ from 'lodash'
 import { join } from 'path'
-import { formatDuration } from '../utils.js'
+import { formatBytes, formatDuration } from '../../common.js'
 
 async function getDauChartData (uin) {
   const data = Bot[uin].dau
@@ -98,15 +98,6 @@ async function getcallStat (uin) {
     name: i.name.replace(/^\[(.*)\]$/, '$1'),
     value: i.num
   }))
-}
-
-function formatBytes (bytes) {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  const size = parseFloat((bytes / Math.pow(k, i)).toFixed(2))
-  return `${size}${sizes[i]}`
 }
 
 function getPluginNum () {
