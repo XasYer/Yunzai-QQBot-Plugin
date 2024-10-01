@@ -471,8 +471,8 @@ export default class Dau {
             this.stats[key]++
             this.group_increase[group_id] = 0
           }
-          this.group_increase(type)[group_id]++
-          this.setDB(type, this.group_increase(type), 2)
+          this.group_increase[group_id]++
+          this.setDB(type, this.group_increase, 2)
         } else {
           if (!this.group_increase[group_id]) {
             this.group_increase[group_id] = 0
