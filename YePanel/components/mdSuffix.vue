@@ -6,6 +6,7 @@ import {
   PlusForm,
 } from "plus-pro-components";
 import { h, nextTick, ref, reactive } from "vue";
+import iconify from "iconify";
 
 export interface FormProps {
   formInline: {
@@ -99,7 +100,7 @@ const addColumn = (key: string, values: string) => {
             h(
               "div",
               { class: "cursor-pointer", onClick: () => closeItem(key) },
-              [h("div", "X")]
+              [h(iconify, { icon: "carbon:close-filled" })]
             ),
           ]
         );
