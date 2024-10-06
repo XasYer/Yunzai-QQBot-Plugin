@@ -46,12 +46,7 @@ let { config, configSave } = await makeConfig('QQBot', {
     maxRetry: Infinity,
     timeout: 30000
   },
-  token: [],
-  web: {
-    password: {
-      default: '123456'
-    }
-  }
+  token: []
 }, {
   tips: [
     '欢迎使用 TRSS-Yunzai QQBot Plugin ! 作者：时雨🌌星空 & 小叶',

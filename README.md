@@ -88,15 +88,7 @@ TRSS-Yunzai QQBot 适配器 插件
     - `redis`
       - 优点: 大部分使用redis存储,不会缓存
       - 缺点: 没有缓存所以有些没统计
-16. 已转移至新仓库: [YePanel](https://github.com/XasYer/YePanel)
 
-    > **先用这个, 之后会移除**
-    > 
-    > 增加web管理, 建议先通过`config.web.password`设置密码
-    > - 可以自行拉取web分支部署
-    > - 或使用公共地址: [http://gh.xasyer.icu/Yunzai-QQBot-Plugin](http://gh.xasyer.icu/Yunzai-QQBot-Plugin)
-    >
-    > 账号为QQbot的QQ号, 密码默认为123456, api地址为`http://你的ip:2536/qqbot`, 需要开放2536端口,2536可自行替换成对应端口
 
 ## 安装教程
 

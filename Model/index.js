@@ -4,7 +4,6 @@ import { getTime, importJS, splitMarkDownTemplate, getMustacheTemplating } from 
 import Runtime from '../../../lib/plugins/runtime.js'
 import Handler from '../../../lib/plugins/handler.js'
 import { config, configSave, refConfig } from './config.js'
-import './web/index.js'
 
 export {
   Dau,
