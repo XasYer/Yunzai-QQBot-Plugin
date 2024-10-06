@@ -88,7 +88,7 @@ TRSS-Yunzai QQBot 适配器 插件
     - `redis`
       - 优点: 大部分使用redis存储,不会缓存
       - 缺点: 没有缓存所以有些没统计
-
+16. 已适配YePanel,提供dau统计和设置功能
 
 ## 安装教程
 
