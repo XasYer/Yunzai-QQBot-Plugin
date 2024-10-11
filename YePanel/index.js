@@ -38,18 +38,17 @@ export default {
       }
     ]
   },
+  // 使用fastify.route注册路由
   api: [
     {
       // 接口的url
       url: '/get-setting-data',
       // 请求方法
       method: 'post',
-      // 是否需要token, 会自动判断
-      token: true,
+      // 如果不需要鉴权可以取消这段注释
+      // preHandler: (request, reply, done) => done(),
       // 回调函数
-      // 默认content-type 为 application/json
-      // 返回值为json格式
-      response: (req, res) => {
+      handler: (request, reply) => {
         let maxRetry = config.bot.maxRetry
         if (maxRetry === Infinity) {
           maxRetry = 0
@@ -65,12 +64,13 @@ export default {
           }
         }
       }
+      // 可以有wsHandler 不需要onopen, 连接即op
+      // wsHandler: (ws, request) => {}
     },
     {
       url: '/set-setting-data',
       method: 'post',
-      token: true,
-      response: async ({ body }) => {
+      handler: async ({ body }) => {
         const { data } = body
         if (data.bot.maxRetry === 0) {
           data.bot.maxRetry = Infinity
@@ -94,8 +94,7 @@ export default {
     {
       url: '/get-home-data',
       method: 'post',
-      token: true,
-      response: async ({ body: { uin } }) => {
+      handler: async ({ body: { uin } }) => {
         const QQBotMap = {}
         Bot.uin.forEach(i => {
           if (Bot[i].adapter?.name === 'QQBot') {

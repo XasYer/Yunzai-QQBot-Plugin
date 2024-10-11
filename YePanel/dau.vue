@@ -46,12 +46,19 @@
             style="height: 82px"
           >
             <template #default>
-              <div class="flex justify-between">
-                <span class="text-md font-medium">
+              <div style="display: flex; justify-content: space-between">
+                <span class="text-md font-medium" style="font-size: 1rem">
                   {{ item.name }}
                 </span>
                 <div
-                  class="w-8 h-8 flex justify-center items-center rounded-md"
+                  style="
+                    width: 2rem;
+                    height: 2rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 0.375rem;
+                  "
                   :style="{
                     backgroundColor: isDark ? 'transparent' : item.bgColor,
                   }"
@@ -59,9 +66,21 @@
                   <span v-if="item.total">总计</span>
                 </div>
               </div>
-              <div class="flex justify-between items-end mt-3">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: end;
+                  margin-top: 0.75rem;
+                "
+              >
                 <div class="w-1/2">
-                  <div class="text-[1.6em]">{{ item.value }}</div>
+                  <div
+                    class="text-[1.6em]"
+                    style="font-size: 1.6rem; width: 50%"
+                  >
+                    {{ item.value }}
+                  </div>
                 </div>
                 <div>{{ item.total }}</div>
               </div>
