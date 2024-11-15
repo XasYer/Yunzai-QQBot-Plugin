@@ -1624,7 +1624,7 @@ export class QQBotAdapter extends plugin {
   }
 
   async oneKeySendGroupMsg () {
-    if (this.e.adapter_name !== 'qqbot') return false
+    if (this.e.adapter_name !== 'QQBot') return false
     const msg = await importJS('Model/template/oneKeySendGroupMsg.js', 'default')
     if (msg === false) {
       this.reply('请先设置模版哦', true)
