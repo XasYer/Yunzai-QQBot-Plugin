@@ -974,7 +974,7 @@ const adapter = new class QQBotAdapter {
       ...Bot[id].gl.get(group_id),
       self_id: id,
       bot: Bot[id],
-      group_id: group_id.replace(`${id}${this.sep}`, '')
+      group_id: group_id.replace?.(`${id}${this.sep}`, '') || group_id
     }
     return {
       ...i,
