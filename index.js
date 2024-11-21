@@ -750,13 +750,14 @@ const adapter = new class QQBotAdapter {
   }
 
   sendGroupMsg (data, msg, event) {
-    if (Handler.has('qqbot.sendGroupMsg')) {
+    if (Handler.has('QQBot.group.sendMsg')) {
       return Handler.call(
         'QQBot.group.sendMsg',
         data,
         {
           self_id: data.self_id,
           group_id: `${data.self_id}${this.sep}${data.group_id}`,
+          raw_group_id: data.group_id,
           user_id: data.user_id,
           msg,
           event
@@ -968,7 +969,7 @@ const adapter = new class QQBotAdapter {
   }
 
   pickGroup (id, group_id) {
-    if (group_id.startsWith('qg_')) { return this.pickGuild(id, group_id) }
+    if (group_id.startsWith?.('qg_')) { return this.pickGuild(id, group_id) }
     const i = {
       ...Bot[id].gl.get(group_id),
       self_id: id,
