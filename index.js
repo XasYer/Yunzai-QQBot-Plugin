@@ -750,7 +750,21 @@ const adapter = new class QQBotAdapter {
   }
 
   sendGroupMsg (data, msg, event) {
-    return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
+    if (Handler.has('qqbot.sendGroupMsg')) {
+      return Handler.call(
+        'QQBot.group.sendMsg',
+        data,
+        {
+          self_id: data.self_id,
+          group_id: `${data.self_id}${this.sep}${data.group_id}`,
+          user_id: data.user_id,
+          msg,
+          event
+        }
+      )
+    } else {
+      return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
+    }
   }
 
   async makeGuildMsg (data, msg) {
