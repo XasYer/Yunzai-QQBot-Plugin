@@ -749,9 +749,9 @@ const adapter = new class QQBotAdapter {
     return this.sendMsg(data, msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
   }
 
-  sendGroupMsg (data, msg, event) {
+  async sendGroupMsg (data, msg, event) {
     if (Handler.has('QQBot.group.sendMsg')) {
-      return Handler.call(
+      const res = await Handler.call(
         'QQBot.group.sendMsg',
         data,
         {
@@ -763,9 +763,11 @@ const adapter = new class QQBotAdapter {
           event
         }
       )
-    } else {
-      return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
+      if (res !== false) {
+        return res
+      }
     }
+    return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
   }
 
   async makeGuildMsg (data, msg) {
