@@ -1,9 +1,11 @@
 import _ from 'lodash'
 import fs from 'node:fs'
+import axios from 'axios'
+import WebSocket from 'ws'
 import QRCode from 'qrcode'
 import { join } from 'node:path'
 import imageSize from 'image-size'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, randomBytes } from 'node:crypto'
 import { encode as encodeSilk } from 'silk-wasm'
 import {
   Dau,
@@ -17,18 +19,9 @@ import {
   getMustacheTemplating
 } from './Model/index.js'
 
-const QQBot = await (async () => {
-  try {
-    return (await import('qq-official-bot')).Bot
-  } catch (error) {
-    return (await import('qq-group-bot')).Bot
-  }
-})()
-
 const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
-const userIdCache = {}
 const markdown_template = await importJS('Model/template/markdownTemplate.js', 'default')
 const TmplPkg = await importJS('templates/index.js')
 
@@ -46,6 +39,38 @@ const adapter = new class QQBotAdapter {
     }
 
     this.sep = config.sep || ((process.platform == 'win32') && '') || ':'
+  }
+
+  async request (method, url, options = {}) {
+    const res = await axios.request({
+      method,
+      url,
+      baseURL: 'https://api.sgroup.qq.com/',
+      timeout: config.bot.timeout,
+      ...options
+    })
+    return res.data
+  }
+
+  async makeMedia (data, file_type, file_data) {
+    const target = data.group_id ? `groups/${data.group_id}` : `users/${data.user_id}`
+    const info = {}
+    if (file_data.startsWith('http')) {
+      info.url = file_data
+    } else if (file_data.startsWith('base64://')) {
+      info.file_data = file_data.replace('base64://', '')
+    } else {
+      const buffer = await Bot.Buffer(file_data)
+      info.file_data = buffer.toString('base64')
+    }
+    file_type = Number(file_type) || ['image', 'video', 'audio'].indexOf(file_type) + 1
+    return await data.bot.request('post', `/v2/${target}/files`, {
+      data: {
+        file_type,
+        ...info,
+        srv_send_msg: false
+      }
+    })
   }
 
   async makeRecord (file) {
@@ -197,7 +222,6 @@ const adapter = new class QQBotAdapter {
         msg.action.permission.specify_user_ids = []
         if (!Array.isArray(button.permission)) button.permission = [button.permission]
         for (let id of button.permission) {
-          if (config.toQQUin && userIdCache[id]) id = userIdCache[id]
           msg.action.permission.specify_user_ids.push(id.replace(`${data.self_id}${this.sep}`, ''))
         }
       }
@@ -402,7 +426,6 @@ const adapter = new class QQBotAdapter {
         case 'at':
           if (i.qq == 'all') content += '@everyone'
           else {
-            if (config.toQQUin && userIdCache[i.qq]) i.qq = userIdCache[i.qq]
             content += `<@${i.qq?.replace?.(`${data.self_id}${this.sep}`, '')}>`
           }
           break
@@ -555,54 +578,71 @@ const adapter = new class QQBotAdapter {
   }
 
   async makeMsg (data, msg) {
-    const sendType = ['audio', 'image', 'video', 'file']
-    const messages = []
-    const button = []
-    let message = []
+    // const button = []
     let reply
+
+    const params = []
+
+    let param = {}
+
+    const resetParam = () => {
+      param = {
+        content: '',
+        msg_type: 0,
+        msg_seq: randomBytes(2).readUint16BE()
+      }
+    }
+
+    resetParam()
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i == 'object') { i = { ...i } } else { i = { type: 'text', text: i } }
 
       switch (i.type) {
+        case 'face':
         case 'at':
-          // if (config.toQQUin && userIdCache[user_id]) {
-          //   i.qq = userIdCache[user_id]
-          // }
           // i.qq = i.qq?.replace?.(`${data.self_id}${this.sep}`, "")
           continue
         case 'text':
-        case 'face':
+          param.content += i.text
+          break
+        // TODO
         case 'ark':
         case 'embed':
-          break
+          continue
         case 'record':
-          i.type = 'audio'
           i.file = await this.makeRecord(i.file)
         case 'video':
-        case 'image':
-          if (message.some(s => sendType.includes(s.type))) {
-            messages.push(message)
-            message = []
+        case 'image': {
+          if (param.media) {
+            params.push(param)
+            resetParam()
           }
+          const media = await this.makeMedia(data, i.type, i.file)
+          param.media = media
+          param.msg_type = 7
           break
+        }
         case 'file':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
-          i = { type: 'text', text: `文件：${i.file}` }
-          break
+          // TODO: 会暴露服务器ip
+          // if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
+          // i = { type: 'text', text: `文件：${i.file}` }
+          // break
+          continue
         case 'reply':
           if (i.id.startsWith('event_')) {
-            reply = { type: 'reply', event_id: i.id.replace(/^event_/, '') }
+            reply = { event_id: i.id.replace(/^event_/, '') }
           } else {
-            reply = i
+            reply = { msg_id: i.id }
           }
           continue
-        case 'markdown':
-          if (typeof i.data == 'object') { i = { type: 'markdown', ...i.data } } else { i = { type: 'markdown', content: i.data } }
-          break
-        case 'button':
-          config.sendButton && button.push(...this.makeButtons(data, i.data))
-          continue
+          // TODO
+        // case 'markdown':
+        //   if (typeof i.data == 'object') { i = { type: 'markdown', ...i.data } } else { i = { type: 'markdown', content: i.data } }
+        //   break
+        // case 'button':
+        //   config.sendButton && button.push(...this.makeButtons(data, i.data))
+        //   continue
         case 'node':
           if (Handler.has('ws.tool.toImg') && config.toImg) {
             const e = {
@@ -615,61 +655,73 @@ const adapter = new class QQBotAdapter {
             e.runtime = new Runtime(e)
             await Handler.call('ws.tool.toImg', e, i.data)
             // i.file = await Bot.fileToUrl(i.file)
-            if (message.some(s => sendType.includes(s.type))) {
-              messages.push(message)
-              message = []
+            if (param.media) {
+              params.push(param)
+              resetParam()
             }
+            const media = await this.makeMedia(data, i.type, i.file)
+            param.media = media
+            param.msg_type = 7
           } else {
             for (const { message } of i.data) {
-              messages.push(...(await this.makeMsg(data, message)))
+              params.push(...(await this.makeMsg(data, message)))
             }
           }
           break
+          // TODO
         case 'raw':
-          if (Array.isArray(i.data)) {
-            messages.push(i.data)
-            continue
-          }
-          i = i.data
-          break
+          // if (Array.isArray(i.data)) {
+          //   messages.push(i.data)
+          //   continue
+          // }
+          // i = i.data
+          // break
+          continue
         default:
-          i = { type: 'text', text: JSON.stringify(i) }
+          param.content += JSON.stringify(i)
       }
 
-      if (i.type === 'text' && i.text) {
-        const match = i.text.match(this.toQRCodeRegExp)
+      if (param.content) {
+        const match = param.content.match(this.toQRCodeRegExp)
         if (match) {
           for (const url of match) {
-            const msg = segment.image(await Bot.fileToUrl(await this.makeQRCode(url)))
-            if (message.some(s => sendType.includes(s.type))) {
-              messages.push(message)
-              message = []
+            const base64 = await this.makeQRCode(url)
+            const media = await this.makeMedia(data, 'image', base64)
+            if (param.media) {
+              params.push(param)
+              resetParam()
             }
-            message.push(msg)
-            i.text = i.text.replace(url, '[链接(请扫码查看)]')
+            param.media = media
+            param.msg_type = 7
+            param.content = param.content.replace(url, '[链接(请扫码查看)]')
           }
         }
       }
 
-      if (i.type !== 'node') message.push(i)
+      // if (i.type !== 'node') message.push(i)
     }
 
-    if (message.length) { messages.push(message) }
-
-    while (button.length) {
-      messages.push([{
-        type: 'keyboard',
-        content: { rows: button.splice(0, 5) }
-      }])
+    if (param.content || param.media) {
+      params.push(param)
     }
+
+    // TODO
+    // while (button.length) {
+    //   messages.push([{
+    //     type: 'keyboard',
+    //     content: { rows: button.splice(0, 5) }
+    //   }])
+    // }
 
     if (reply) {
-      for (const i of messages) i.unshift(reply)
+      for (const i of params) {
+        Object.assign(i, reply)
+      }
     }
-    return messages
+    return params
   }
 
-  async sendMsg (data, send, msg) {
+  async sendMsg (data, msg, msg_id) {
     const rets = { message_id: [], data: [], error: [] }
     let msgs
 
@@ -677,6 +729,16 @@ const adapter = new class QQBotAdapter {
       for (const i of msgs) {
         try {
           Bot.makeLog('debug', ['发送消息', i], data.self_id)
+          const send = async param => {
+            const target = data.group_id ? `groups/${data.group_id}` : `users/${data.user_id}`
+            return await data.bot.request('post', `v2/${target}/messages`, {
+              data: {
+                ...param,
+                msg_id
+              }
+            })
+          }
+          console.log('i', i)
           const ret = await send(i)
           Bot.makeLog('debug', ['发送消息返回', ret], data.self_id)
 
@@ -745,11 +807,11 @@ const adapter = new class QQBotAdapter {
     return rets
   }
 
-  sendFriendMsg (data, msg, event) {
-    return this.sendMsg(data, msg => data.bot.sdk.sendPrivateMessage(data.user_id, msg, event), msg)
+  sendFriendMsg (data, msg, msg_id) {
+    return this.sendMsg(data, msg, msg_id)
   }
 
-  async sendGroupMsg (data, msg, event) {
+  async sendGroupMsg (data, msg, msg_id) {
     if (Handler.has('QQBot.group.sendMsg')) {
       const res = await Handler.call(
         'QQBot.group.sendMsg',
@@ -760,139 +822,14 @@ const adapter = new class QQBotAdapter {
           raw_group_id: data.group_id,
           user_id: data.user_id,
           msg,
-          event
+          msg_id
         }
       )
       if (res !== false) {
         return res
       }
     }
-    return this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(data.group_id, msg, event), msg)
-  }
-
-  async makeGuildMsg (data, msg) {
-    const messages = []
-    let message = []
-    let reply
-    for (let i of Array.isArray(msg) ? msg : [msg]) {
-      if (typeof i == 'object') { i = { ...i } } else { i = { type: 'text', text: i } }
-
-      switch (i.type) {
-        case 'at':
-          i.user_id = i.qq?.replace?.(/^qg_/, '')
-        case 'text':
-        case 'face':
-        case 'ark':
-        case 'embed':
-          break
-        case 'image':
-          message.push(i)
-          messages.push(message)
-          message = []
-          continue
-        case 'record':
-        case 'video':
-        case 'file':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i)
-          i = { type: 'text', text: `文件：${i.file}` }
-          break
-        case 'reply':
-          if (i.id.startsWith('event_')) {
-            reply = { type: 'reply', event_id: i.id.replace(/^event_/, '') }
-          } else {
-            reply = i
-          }
-          continue
-        case 'markdown':
-          if (typeof i.data == 'object') { i = { type: 'markdown', ...i.data } } else { i = { type: 'markdown', content: i.data } }
-          break
-        case 'button':
-          continue
-        case 'node':
-          for (const { message } of i.data) { messages.push(...(await this.makeGuildMsg(data, message))) }
-          continue
-        case 'raw':
-          if (Array.isArray(i.data)) {
-            messages.push(i.data)
-            continue
-          }
-          i = i.data
-          break
-        default:
-          i = { type: 'text', text: JSON.stringify(i) }
-      }
-
-      if (i.type == 'text' && i.text) {
-        const match = i.text.match(this.toQRCodeRegExp)
-        if (match) {
-          for (const url of match) {
-            const msg = segment.image(await this.makeQRCode(url))
-            message.push(msg)
-            messages.push(message)
-            message = []
-            i.text = i.text.replace(url, '[链接(请扫码查看)]')
-          }
-        }
-      }
-
-      message.push(i)
-    }
-
-    if (message.length) {
-      messages.push(message)
-    }
-    if (reply) {
-      for (const i of messages) i.unshift(reply)
-    }
-    return messages
-  }
-
-  async sendGMsg (data, send, msg) {
-    const rets = { message_id: [], data: [], error: [] }
-    let msgs
-
-    const sendMsg = async () => {
-      for (const i of msgs) {
-        try {
-          Bot.makeLog('debug', ['发送消息', i], data.self_id)
-          const ret = await send(i)
-          Bot.makeLog('debug', ['发送消息返回', ret], data.self_id)
-
-          rets.data.push(ret)
-          if (ret.id) rets.message_id.push(ret.id)
-          Bot[data.self_id].dau.setDau('send_msg', data)
-        } catch (err) {
-          // Bot.makeLog('error', ['发送消息错误', i, err], data.self_id)
-          logger.error(data.self_id, '发送消息错误', i, err)
-          rets.error.push(err)
-          return false
-        }
-      }
-    }
-
-    msgs = await this.makeGuildMsg(data, msg)
-    if (await sendMsg() === false) {
-      msgs = await this.makeGuildMsg(data, msg)
-      await sendMsg()
-    }
-    return rets
-  }
-
-  async sendDirectMsg (data, msg, event) {
-    if (!data.guild_id) {
-      if (!data.src_guild_id) {
-        Bot.makeLog('error', [`发送频道私聊消息失败：[${data.user_id}] 不存在来源频道信息`, msg], data.self_id)
-        return false
-      }
-      const dms = await data.bot.sdk.createDirectSession(data.src_guild_id, data.user_id)
-      data.guild_id = dms.guild_id
-      data.channel_id = dms.channel_id
-      data.bot.fl.set(`qg_${data.user_id}`, {
-        ...data.bot.fl.get(`qg_${data.user_id}`),
-        ...dms
-      })
-    }
-    return this.sendGMsg(data, msg => data.bot.sdk.sendDirectMessage(data.guild_id, msg, event), msg)
+    return this.sendMsg(data, msg, msg_id)
   }
 
   async recallMsg (data, recall, message_id) {
@@ -919,24 +856,7 @@ const adapter = new class QQBotAdapter {
     return this.recallMsg(data, i => data.bot.sdk.recallGroupMessage(data.group_id, i), message_id)
   }
 
-  recallDirectMsg (data, message_id, hide = config.hideGuildRecall) {
-    Bot.makeLog('info', `撤回${hide ? '并隐藏' : ''}频道私聊消息：[${data.guild_id}] ${message_id}`, data.self_id)
-    return this.recallMsg(data, i => data.bot.sdk.recallDirectMessage(data.guild_id, i, hide), message_id)
-  }
-
-  recallGuildMsg (data, message_id, hide = config.hideGuildRecall) {
-    Bot.makeLog('info', `撤回${hide ? '并隐藏' : ''}频道消息：[${data.channel_id}] ${message_id}`, data.self_id)
-    return this.recallMsg(data, i => data.bot.sdk.recallGuildMessage(data.channel_id, i, hide), message_id)
-  }
-
-  sendGuildMsg (data, msg, event) {
-    return this.sendGMsg(data, msg => data.bot.sdk.sendGuildMessage(data.channel_id, msg, event), msg)
-  }
-
   pickFriend (id, user_id) {
-    if (config.toQQUin && userIdCache[user_id]) user_id = userIdCache[user_id]
-    if (user_id.startsWith('qg_')) return this.pickGuildFriend(id, user_id)
-
     const i = {
       ...Bot[id].fl.get(user_id),
       self_id: id,
@@ -952,10 +872,6 @@ const adapter = new class QQBotAdapter {
   }
 
   pickMember (id, group_id, user_id) {
-    if (config.toQQUin && userIdCache[user_id]) {
-      user_id = userIdCache[user_id]
-    }
-    if (user_id.startsWith('qg_')) { return this.pickGuildMember(id, group_id, user_id) }
     const i = {
       ...Bot[id].fl.get(user_id),
       ...Bot[id].gml.get(group_id)?.get(user_id),
@@ -971,7 +887,6 @@ const adapter = new class QQBotAdapter {
   }
 
   pickGroup (id, group_id) {
-    if (group_id.startsWith?.('qg_')) { return this.pickGuild(id, group_id) }
     const i = {
       ...Bot[id].gl.get(group_id),
       self_id: id,
@@ -985,144 +900,6 @@ const adapter = new class QQBotAdapter {
       recallMsg: message_id => this.recallGroupMsg(i, message_id),
       getMemberMap: () => i.bot.gml.get(group_id)
     }
-  }
-
-  pickGuildFriend (id, user_id) {
-    const i = {
-      ...Bot[id].fl.get(user_id),
-      self_id: id,
-      bot: Bot[id],
-      user_id: user_id.replace(/^qg_/, '')
-    }
-    return {
-      ...i,
-      sendMsg: msg => this.sendDirectMsg(i, msg),
-      recallMsg: (message_id, hide) => this.recallDirectMsg(i, message_id, hide)
-    }
-  }
-
-  pickGuildMember (id, group_id, user_id) {
-    const guild_id = group_id.replace(/^qg_/, '').split('-')
-    const i = {
-      ...Bot[id].fl.get(user_id),
-      ...Bot[id].gml.get(group_id)?.get(user_id),
-      self_id: id,
-      bot: Bot[id],
-      src_guild_id: guild_id[0],
-      src_channel_id: guild_id[1],
-      user_id: user_id.replace(/^qg_/, '')
-    }
-    return {
-      ...this.pickGuildFriend(id, user_id),
-      ...i,
-      sendMsg: msg => this.sendDirectMsg(i, msg),
-      recallMsg: (message_id, hide) => this.recallDirectMsg(i, message_id, hide)
-    }
-  }
-
-  pickGuild (id, group_id) {
-    const guild_id = group_id.replace(/^qg_/, '').split('-')
-    const i = {
-      ...Bot[id].gl.get(group_id),
-      self_id: id,
-      bot: Bot[id],
-      guild_id: guild_id[0],
-      channel_id: guild_id[1]
-    }
-    return {
-      ...i,
-      sendMsg: msg => this.sendGuildMsg(i, msg),
-      recallMsg: (message_id, hide) => this.recallGuildMsg(i, message_id, hide),
-      pickMember: user_id => this.pickGuildMember(id, group_id, user_id),
-      getMemberMap: () => i.bot.gml.get(group_id)
-    }
-  }
-
-  async makeFriendMessage (data, event) {
-    data.sender = {
-      user_id: `${data.self_id}${this.sep}${event.sender.user_id}`
-    }
-    Bot.makeLog('info', `好友消息：[${data.user_id}] ${data.raw_message}`, data.self_id)
-    data.reply = msg => this.sendFriendMsg({
-      ...data, user_id: event.sender.user_id
-    }, msg, { id: data.message_id })
-    await this.setFriendMap(data)
-  }
-
-  async makeGroupMessage (data, event) {
-    data.sender = {
-      user_id: `${data.self_id}${this.sep}${event.sender.user_id}`
-    }
-    data.group_id = `${data.self_id}${this.sep}${event.group_id}`
-    if (config.toQQUin && Handler.has('ws.tool.findUserId')) {
-      const user_id = await Handler.call('ws.tool.findUserId', { user_id: data.user_id })
-      if (user_id?.custom) {
-        userIdCache[user_id.custom] = data.user_id
-        data.sender.user_id = user_id.custom
-      }
-    }
-
-    // 自定义消息过滤前台日志防刷屏(自欺欺人大法)
-    const filterLog = config.filterLog?.[data.self_id] || []
-    let logStat = filterLog.includes(_.trim(data.raw_message)) ? 'debug' : 'info'
-    Bot.makeLog(logStat, `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
-
-    data.reply = msg => this.sendGroupMsg({
-      ...data, group_id: event.group_id
-    }, msg, { id: data.message_id })
-    // data.message.unshift({ type: "at", qq: data.self_id })
-    await this.setGroupMap(data)
-  }
-
-  async makeDirectMessage (data, event) {
-    data.sender = {
-      ...data.bot.fl.get(`qg_${event.sender.user_id}`),
-      ...event.sender,
-      user_id: `qg_${event.sender.user_id}`,
-      nickname: event.sender.user_name,
-      avatar: event.author.avatar,
-      guild_id: event.guild_id,
-      channel_id: event.channel_id,
-      src_guild_id: event.src_guild_id
-    }
-    Bot.makeLog('info', `频道私聊消息：[${data.sender.nickname}(${data.user_id})] ${data.raw_message}`, data.self_id)
-    data.reply = msg => this.sendDirectMsg({
-      ...data,
-      user_id: event.user_id,
-      guild_id: event.guild_id,
-      channel_id: event.channel_id
-    }, msg, { id: data.message_id })
-    await this.setFriendMap(data)
-  }
-
-  async makeGuildMessage (data, event) {
-    data.message_type = 'group'
-    data.sender = {
-      ...data.bot.fl.get(`qg_${event.sender.user_id}`),
-      ...event.sender,
-      user_id: `qg_${event.sender.user_id}`,
-      nickname: event.sender.user_name,
-      card: event.member.nick,
-      avatar: event.author.avatar,
-      src_guild_id: event.guild_id,
-      src_channel_id: event.channel_id
-    }
-    if (config.toQQUin && Handler.has('ws.tool.findUserId')) {
-      const user_id = await Handler.call('ws.tool.findUserId', { user_id: data.user_id })
-      if (user_id?.custom) {
-        userIdCache[user_id.custom] = data.user_id
-        data.sender.user_id = user_id.custom
-      }
-    }
-    data.group_id = `qg_${event.guild_id}-${event.channel_id}`
-    Bot.makeLog('info', `频道消息：[${data.group_id}, ${data.sender.nickname}(${data.user_id})] ${data.raw_message}`, data.self_id)
-    data.reply = msg => this.sendGuildMsg({
-      ...data,
-      guild_id: event.guild_id,
-      channel_id: event.channel_id
-    }, msg, { id: data.message_id })
-    await this.setFriendMap(data)
-    await this.setGroupMap(data)
   }
 
   async setFriendMap (data) {
@@ -1151,47 +928,65 @@ const adapter = new class QQBotAdapter {
   }
 
   async makeMessage (id, event) {
+    const d = event.d
     const data = {
       raw: event,
       bot: Bot[id],
       self_id: id,
-      post_type: event.post_type,
-      message_type: event.message_type,
-      sub_type: event.sub_type,
-      message_id: event.message_id,
+      post_type: 'message',
+      message_type: 'group',
+      sub_type: 'normal',
+      message_id: d.id,
+      sender: {
+        user_id: `${id}${this.sep}${d.author.id}`
+      },
       get user_id () { return this.sender.user_id },
-      message: event.message,
-      raw_message: event.raw_message
+      message: [],
+      raw_message: ''
     }
 
-    for (const i of data.message) {
-      switch (i.type) {
-        case 'at':
-          if (data.message_type == 'group') i.qq = `${data.self_id}${this.sep}${i.user_id}`
-          else i.qq = `qg_${i.user_id}`
-          break
+    if (d.content) {
+      data.message.push({ type: 'text', text: d.content })
+      data.raw_message += d.content
+    }
+
+    if (d.attachments) {
+      for (const i of d.attachments) {
+        data.message.push({
+          type: 'image',
+          ...i
+        })
+        data.raw_message += `{image:${i.filename.split('.').shift()}}`
       }
     }
 
-    switch (data.message_type) {
-      case 'private':
-      case 'direct':
-        if (data.sub_type == 'friend') {
-          await this.makeFriendMessage(data, event)
-        } else {
-          await this.makeDirectMessage(data, event)
-        }
+    switch (event.t) {
+      case 'C2C_MESSAGE_CREATE':
+        Bot.makeLog('info', `好友消息：[${data.user_id}] ${data.raw_message}`, data.self_id)
+        data.message_type = 'private'
+        data.sub_type = 'friend'
+        // TODO
+        // data.reply = msg => this.sendFriendMsg({
+        //   ...data, user_id: event.sender.user_id
+        // }, msg, { id: data.message_id })
+        this.setFriendMap(data)
         break
-      case 'group':
-        await this.makeGroupMessage(data, event)
+      case 'GROUP_AT_MESSAGE_CREATE': {
+        data.group_id = `${data.self_id}${this.sep}${d.group_id}`
+
+        // 自定义消息过滤前台日志防刷屏(自欺欺人大法)
+        const filterLog = config.filterLog?.[data.self_id] || []
+        const logStat = filterLog.includes(_.trim(data.raw_message)) ? 'debug' : 'info'
+        Bot.makeLog(logStat, `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
+
+        // TODO
+        data.reply = msg => this.sendGroupMsg({
+          ...data, group_id: d.group_id
+        }, msg, data.message_id)
+        // TODO: 可以添加config是否添加atbot
+        // data.message.unshift({ type: "at", qq: data.self_id })
         break
-      case 'guild':
-        await this.makeGuildMessage(data, event)
-        if (data.message.length === 0) {
-          // tx.sb 群有一个空格频道没有
-          data.message.push({ type: 'text', text: '' })
-        }
-        break
+      }
       default:
         Bot.makeLog('warn', ['未知消息', event], id)
         return
@@ -1346,46 +1141,52 @@ const adapter = new class QQBotAdapter {
   async connect (token) {
     token = token.split(':')
     const id = token[0]
+
+    const webhook = config.webhook[id]
+
+    if (!webhook) {
+      return false
+    }
+
     const opts = {
       ...config.bot,
       appid: token[1],
       token: token[2],
-      secret: token[3],
-      intents: [
-        'GUILDS',
-        'GUILD_MEMBERS',
-        'GUILD_MESSAGE_REACTIONS',
-        'DIRECT_MESSAGE',
-        'INTERACTION',
-        'MESSAGE_AUDIT'
-      ]
+      secret: token[3]
     }
 
-    if (Number(token[4])) opts.intents.push('GROUP_AT_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE')
+    const refreshAccessToken = async () => {
+      const res = await this.request('post', 'app/getAppAccessToken', {
+        baseURL: 'https://bots.qq.com/',
+        data: {
+          appId: opts.appid,
+          clientSecret: opts.secret
+        }
+      })
+      opts.accessToken = res.access_token
+      setTimeout(refreshAccessToken, res.expires_in * 1000 - 60 * 1000)
+    }
 
-    if (Number(token[5])) opts.intents.push('GUILD_MESSAGES')
-    else opts.intents.push('PUBLIC_GUILD_MESSAGES')
+    await refreshAccessToken()
+
+    const request = (method, url, options = {}) => {
+      return this.request(method, url, {
+        ...options,
+        headers: {
+          Authorization: `QQBot ${opts.accessToken}`
+        }
+      })
+    }
+
+    const BotInfo = await request('get', 'users/@me')
 
     Bot[id] = {
       adapter: this,
-      sdk: new QQBot(opts),
-      login () {
-        return new Promise(resolve => {
-          this.sdk.sessionManager.once('READY', resolve)
-          this.sdk.start()
-        })
-      },
-      logout () {
-        return new Promise(resolve => {
-          this.sdk.ws.once('close', resolve)
-          this.sdk.stop()
-        })
-      },
 
       uin: id,
-      info: { id, ...opts },
-      get nickname () { return this.sdk.nickname },
-      get avatar () { return `https://q.qlogo.cn/g?b=qq&s=0&nk=${id}` },
+      info: { id, ...BotInfo, appid: opts.appid },
+      nickname: BotInfo.nickname,
+      avatar: `https://q.qlogo.cn/g?b=qq&s=0&nk=${id}`,
 
       version: {
         id: this.id,
@@ -1396,6 +1197,14 @@ const adapter = new class QQBotAdapter {
         start_time: Date.now() / 1000,
         recv_msg_cnt: 0
       },
+
+      privacy: accessToken => {
+        if (accessToken) {
+          opts.accessToken = accessToken
+        }
+        return opts
+      },
+      request,
 
       pickFriend: user_id => this.pickFriend(id, user_id),
       get pickUser () { return this.pickFriend },
@@ -1408,32 +1217,36 @@ const adapter = new class QQBotAdapter {
       gl: await this.getGroupMap(id),
       gml: await this.getMemberMap(id),
 
-      dau: new Dau(id, this.sep, config.dauDB),
+      dau: new Dau(id, this.sep),
 
       callback: {}
     }
 
-    Bot[id].sdk.logger = {}
-    for (const i of ['trace', 'debug', 'info', 'mark', 'warn', 'error', 'fatal']) {
-      Bot[id].sdk.logger[i] = (...args) => {
-        if (config.simplifiedSdkLog) {
-          if (args?.[0]?.match?.(/^send to/)) {
-            args[0] = args[0].replace(/<(.+?)(,.*?)>/g, (v, k1, k2) => {
-              return `<${k1}>`
-            })
-          } else if (args?.[0]?.match?.(/^recv from/)) {
-            return
-          }
-        }
-        Bot.makeLog(i, args, id)
-      }
-    }
-
-    await Bot[id].login()
     await Bot[id].dau.init()
 
-    Bot[id].sdk.on('message', event => this.makeMessage(id, event))
-    Bot[id].sdk.on('notice', event => this.makeNotice(id, event))
+    if (webhook.startsWith('ws')) {
+      const ws = new WebSocket(webhook)
+      ws.on('message', event => {
+        try {
+          const data = JSON.parse(event)
+          if (data.op !== 0) {
+            return
+          }
+          switch (data.t) {
+            case 'GROUP_AT_MESSAGE_CREATE':
+            case 'C2C_MESSAGE_CREATE':
+              this.makeMessage(id, data)
+              break
+              // TODO: 其他事件
+              // Bot[id].sdk.on('notice', event => this.makeNotice(id, event))
+            default:
+              break
+          }
+        } catch (error) {
+
+        }
+      })
+    }
 
     Bot.makeLog('mark', `${this.name}(${this.id}) ${this.version} 已连接`, id)
     Bot.em(`connect.${id}`, { self_id: id })
@@ -1455,10 +1268,8 @@ Bot.adapter.push(adapter)
 const setMap = {
   二维码: 'toQRCode',
   按钮回调: 'toCallback',
-  转换: 'toQQUin',
   转图片: 'toImg',
-  调用统计: 'callStats',
-  用户统计: 'userStats'
+  调用统计: 'callStats'
 }
 
 export class QQBotAdapter extends plugin {
@@ -1504,11 +1315,6 @@ export class QQBotAdapter extends plugin {
           permission: config.permission
         },
         {
-          reg: /^#q+bot用户统计$/i,
-          fnc: 'userStat',
-          permission: config.permission
-        },
-        {
           reg: /^#q+bot刷新co?n?fi?g$/i,
           fnc: 'refConfig',
           permission: config.permission
@@ -1538,9 +1344,6 @@ export class QQBotAdapter extends plugin {
       [
         { text: `${config.toCallback ? '关闭' : '开启'}按钮回调`, callback: `#QQBot设置按钮回调${config.toCallback ? '关闭' : '开启'}` },
         { text: `${config.callStats ? '关闭' : '开启'}调用统计`, callback: `#QQBot设置调用统计${config.callStats ? '关闭' : '开启'}` }
-      ],
-      [
-        { text: `${config.userStats ? '关闭' : '开启'}用户统计`, callback: `#QQBot设置用户统计${config.userStats ? '关闭' : '开启'}` }
       ]
     )])
   }
@@ -1592,7 +1395,7 @@ export class QQBotAdapter extends plugin {
     const pro = this.e.msg.includes('pro')
     const uin = this.e.msg.replace(/^#q+botdau(pro)?/i, '') || this.e.self_id
     const dau = Bot[uin]?.dau
-    if (!dau || !dau.dauDB) return false
+    if (!dau) return false
     const msg = await dau.getDauStatsMsg(this.e, pro)
     if (msg.length) this.reply(msg, true)
   }
@@ -1600,19 +1403,8 @@ export class QQBotAdapter extends plugin {
   async callStat () {
     if (!config.callStats) return false
     const dau = this.e.bot.dau
-    if (!dau || !dau.dauDB) return false
+    if (!dau) return false
     const msg = dau.getCallStatsMsg(this.e)
-    if (msg.length) this.reply(msg, true)
-  }
-
-  async userStat () {
-    if (!config.userStats) return false
-    const dau = this.e.bot.dau
-    if (!dau || !dau.dauDB) return false
-    if (dau.dauDB === 'redis') {
-      return this.reply('用户统计只适配了level,,,', true)
-    }
-    const msg = await dau.getUserStatsMsg(this.e)
     if (msg.length) this.reply(msg, true)
   }
 
@@ -1646,15 +1438,13 @@ export class QQBotAdapter extends plugin {
     if (msg === false) {
       this.reply('请先设置模版哦', true)
     } else {
-      const groupList = this.e.bot.dau.dauDB === 'level' ? Object.keys(this.e.bot.dau.all_group) : [...this.e.bot.gl.keys()]
       const getMsg = typeof msg === 'function' ? msg : () => msg
       const errGroupList = []
-      for (const key of groupList) {
+      for (const key of this.e.bot.gl.keys()) {
         if (key === 'total') continue
-        const id = this.e.bot.dau.dauDB === 'level' ? `${this.e.self_id}${this.e.bot.adapter.sep}${key}` : key
-        const sendMsg = await getMsg(id)
+        const sendMsg = await getMsg(key)
         if (!sendMsg?.length) continue
-        const sendRet = await this.e.bot.pickGroup(id).sendMsg(sendMsg)
+        const sendRet = await this.e.bot.pickGroup(key).sendMsg(sendMsg)
         if (sendRet.error.length) {
           for (const i of sendRet.error) {
             if (i.message.includes('机器人非群成员')) {
@@ -1665,7 +1455,7 @@ export class QQBotAdapter extends plugin {
         }
       }
       if (errGroupList.length) await this.e.bot.dau.deleteNotExistGroup(errGroupList)
-      logger.info(logger.green(`QQBot ${this.e.self_id} 群消息一键发送完成，共${groupList.length - 1}个群，失败${errGroupList.length}个`))
+      logger.info(logger.green(`QQBot ${this.e.self_id} 群消息一键发送完成，共${this.e.bot.gl.size}个群，失败${errGroupList.length}个`))
     }
   }
 }

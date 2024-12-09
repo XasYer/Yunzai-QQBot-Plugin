@@ -10,12 +10,23 @@ TRSS-Yunzai QQBot 适配器 插件
 
 建议使用TRSS原版,此版本为`个人自用`版,会在`任意时间`直接进行更改,且`不会`与TRSS一致
 
+# webhook test
+
+在config中设置webhook的值
+```yaml
+# 若ws开头则是连接ws中转服务器, 对应的ws服务器需要将收到的body解码成json并原封不动的转发到此
+# 若为/开头则视为路由挂载在trss的端口上, 需要自行配置ssl证书等 (TODO)
+webhook:
+  BotQQ: ws://xxx or /webhook
+```
+
 ## 自用Fork版
 
+0. **不适配频道**
+
 1. 转发消息改为渲染成图片,需要安装`ws-plugin`
-2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
 3. `#QQBotDAU` and `#QQBotDAUpro`
-4. `Model/template/groupIncreaseMsg_default.js`中`自定义入群发送主动消息`
+4. `Model/template/groupIncreaseMsg_default.js`中`自定义入群发送被动消息`
 5. `config/QQBot.yaml`中使用以下自定义模版,如果设置了全局md会优先使用自定义模版,配合`e.toQQBotMD = true`将特定消息`转换`成md,亦可在`全局md模式下`通过`e.toQQBotMD = false`将特定消息`不转换`成md
    - 方法1: 直接修改`config/QQBot.yaml` **(推荐)**
      ```yml
@@ -64,7 +75,6 @@ TRSS-Yunzai QQBot 适配器 插件
            input: test2
          # ... 最多10个
    ```
-9. `#QQBot用户统计`: 对比昨日的用户数据,默认关闭,`#QQBot设置用户统计开启`
 10. `config/QQBot.yaml`中使用前台日志消息过滤（~~自欺欺人大法~~），将会不在前台打印自定的消息内容，防log刷屏（~~比如修仙、宝可梦等~~），也可以使用`#QQBot添加/删除过滤日志垃圾机器人`
     - **自定义消息采取完整消息匹配，非关键词匹配**
     - **非必要不建议开启此项**
@@ -77,18 +87,9 @@ TRSS-Yunzai QQBot 适配器 插件
         - 垃圾Bot
         # ...
     ```
-11. `config/QQBot.yaml`中`simplifiedSdkLog`是否简化sdk日志,若设置为`true`则不会打印` recv from Group(xxx):  xxx`,并且会简化发送为`send to Group(xxx): <markdown><button>`
-12. ~~`#QQBot一键群发`: 需要先配置模版 `template/oneKeySendGroupMsg_default.js`~~
+12. `#QQBot一键群发`: 需要先配置模版 `template/oneKeySendGroupMsg_default.js`
 13. `config/QQBot.yaml`中`markdownImgScale: 1`是否对markdown中的图片进行等比例缩放,0.5为缩小50%,1.5为放大50%,以此类推
 14. `config/QQBot.yaml`中`sendButton: true`未开启全局MD时是否单独发送按钮
-15. `config/QQBot.yaml`中`dauDB: level`选择存储dau数据的数据库,可选: `level`, `redis`,以及`false`关闭dau统计(仅每日发言用户和群)
-    - `level`
-      - 优点: 统计了大部分数据
-      - 缺点: 缓存存一份,level存一份
-    - `redis`
-      - 优点: 大部分使用redis存储,不会缓存
-      - 缺点: 没有缓存所以有些没统计
-16. 已适配YePanel,提供dau统计和设置功能
 
 ## 安装教程
 
