@@ -3,6 +3,9 @@ import { getTime, importJS, splitMarkDownTemplate, getMustacheTemplating } from 
 import Runtime from '../../../lib/plugins/runtime.js'
 import Handler from '../../../lib/plugins/handler.js'
 import { config, configSave, refConfig } from './config.js'
+import { runServer } from './webhook.js'
+import { WebSocket } from './webSocket.js'
+import { setUinMap } from './cache.js'
 
 export {
   Dau,
@@ -14,5 +17,8 @@ export {
   getMustacheTemplating,
   config,
   configSave,
-  refConfig
+  refConfig,
+  runServer,
+  WebSocket,
+  setUinMap
 }

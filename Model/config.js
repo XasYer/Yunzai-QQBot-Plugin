@@ -5,8 +5,17 @@ import fs from 'node:fs'
 let { config, configSave } = await makeConfig('QQBot', {
   tips: '',
   permission: 'master',
-  webhook: {},
-  toQRCode: true,
+  webhook: {
+    port: 0,
+    path: '/webhook',
+    signature: true,
+    ssl: {
+      key: '',
+      cert: '',
+      ca: ''
+    },
+    ws: { }
+  },
   toCallback: true,
   toBotUpload: true,
   toImg: true,

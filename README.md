@@ -14,10 +14,30 @@ TRSS-Yunzai QQBot 适配器 插件
 
 在config中设置webhook的值
 ```yaml
-# 若ws开头则是连接ws中转服务器, 对应的ws服务器需要将收到的body解码成json并原封不动的转发到此
-# 若为/开头则视为路由挂载在trss的端口上, 需要自行配置ssl证书等 (TODO)
+# 若配置ws的值, 则使用ws中转服务器
+# 若没配置ws则使用对应的ssl证书并在指定的prot端口的path路径上监听
+# 需要在DNS记录添加一个A记录到服务器的IP地址 然后使用对应的域名 
+# 开发者后台添加请求地址为: https://域名:port/path
 webhook:
-  BotQQ: ws://xxx or /webhook
+  # 目前回调地址允许配置的端口号为： 80、443、8080、8443。
+  port: 443
+  path: /webhook
+  # 是否需要签名验证
+  signature: true
+  # 若不配置此项则需要自行反代
+  ssl:
+    key: /path/to/your.key
+    cert: /path/to/your.pem
+    ca: /path/to/your.crt
+  ws:
+    BotQQ:
+      url: wss://127.0.0.1:8080/ws
+      # 重连间隔 单位毫秒
+      reconn: 5000
+      # 最大重连次数 0为无限重连
+      max: 0
+      # 心跳间隔 单位毫秒
+      ping: 5000
 ```
 
 ## 自用Fork版
