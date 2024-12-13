@@ -50,10 +50,8 @@ const adapter = new class QQBotAdapter {
   async makeMedia (data, file_type, file_data) {
     const target = data.group_id ? `groups/${data.group_id}` : `users/${data.user_id}`
     const info = {}
-    if (file_data.startsWith('http')) {
+    if (typeof file_data == 'string' && file_data.startsWith('http')) {
       info.url = file_data
-    } else if (file_data.startsWith('base64://')) {
-      info.file_data = file_data.replace('base64://', '')
     } else {
       const buffer = await Bot.Buffer(file_data)
       info.file_data = buffer.toString('base64')
