@@ -666,9 +666,9 @@ const adapter = new class QQBotAdapter {
           }
           break
         // TODO
-        // case 'button':
-        //   config.sendButton && button.push(...this.makeButtons(data, i.data))
-        //   continue
+        case 'button':
+          // config.sendButton && button.push(...this.makeButtons(data, i.data))
+          continue
         case 'node':
           if (Handler.has('ws.tool.toImg') && config.toImg) {
             const e = {

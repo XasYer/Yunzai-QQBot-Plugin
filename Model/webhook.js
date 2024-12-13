@@ -96,7 +96,7 @@ export const runServer = async (onMessage, fastify = null) => {
         const keyPair = getKeyPair(appid, secret)
 
         const msg = `${body.d.event_ts}${body.d.plain_token}`
-        logger.info(`[QQBot-Plugin:Webhook-Server] 收到webhook配置验证请求: appid: ${appid} body: ${JSON.stringify(body.d, null, 2)}`)
+        Bot.makeLog('info', ['[QQBot-Plugin:Webhook-Server] 收到webhook配置验证请求', body.d], uin)
 
         const signature = nodeForge.pki.ed25519.sign({
           message: Buffer.from(msg),
@@ -104,8 +104,7 @@ export const runServer = async (onMessage, fastify = null) => {
         })
 
         const signatureHex = Buffer.from(signature).toString('hex')
-        logger.info('[QQBot-Plugin:Webhook-Server] webhook配置验证结果: appid: ${appid} signature: ', signatureHex)
-
+        Bot.makeLog('info', ['[QQBot-Plugin:Webhook-Server] webhook配置验证结果', signatureHex], uin)
         return reply.send({
           plain_token: body.d.plain_token,
           signature: signatureHex
