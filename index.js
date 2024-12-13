@@ -347,8 +347,7 @@ const adapter = new class QQBotAdapter {
       })
     }
 
-    sult
-    return re
+    return result
   }
 
   async makeMarkdownMsg (data, msg) {
@@ -451,8 +450,7 @@ const adapter = new class QQBotAdapter {
             }
           } else {
             for (const { message } of i.data) {
-              sh(...(await this.makeMarkdownMsg(data, message)))
-              params.pu
+              params.push(...(await this.makeMarkdownMsg(data, message)))
             }
             continue
           }
