@@ -24,7 +24,6 @@ const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
 
 const markdown_template = await importJS('Model/template/markdownTemplate.js', 'default')
-const TmplPkg = await importJS('templates/index.js')
 
 const adapter = new class QQBotAdapter {
   constructor () {
@@ -157,30 +156,12 @@ const adapter = new class QQBotAdapter {
         ...button.QQBot?.action
       }
     } else if (button.callback) {
-      if (config.toCallback) {
-        msg.action = {
-          type: 1,
-          permission: { type: 2 },
-          ...button.QQBot?.action
-        }
-        if (!Array.isArray(data._ret_id)) data._ret_id = []
-
-        data.bot.callback[msg.id] = {
-          id: data.message_id,
-          user_id: data.user_id,
-          group_id: data.group_id,
-          message: button.callback,
-          message_id: data._ret_id
-        }
-        setTimeout(() => delete data.bot.callback[msg.id], 300000)
-      } else {
-        msg.action = {
-          type: 2,
-          permission: { type: 2 },
-          data: button.callback,
-          enter: true,
-          ...button.QQBot?.action
-        }
+      msg.action = {
+        type: 2,
+        permission: { type: 2 },
+        data: button.callback,
+        enter: true,
+        ...button.QQBot?.action
       }
     } else if (button.link) {
       msg.action = {
@@ -207,16 +188,16 @@ const adapter = new class QQBotAdapter {
   }
 
   makeButtons (data, button_square) {
-    const msgs = []
+    const rows = []
     for (const button_row of button_square) {
       const buttons = []
       for (let button of button_row) {
         button = this.makeButton(data, button)
         if (button) buttons.push(button)
       }
-      if (buttons.length) { msgs.push({ type: 'button', buttons }) }
+      if (buttons.length) { rows.push({ buttons }) }
     }
-    return msgs
+    return rows
   }
 
   // TODO
@@ -324,9 +305,10 @@ const adapter = new class QQBotAdapter {
       for (const i of splitMarkDownTemplate(temp)) {
         if (index == (type == 1 ? markdown_template.params.length : keys.length)) {
           result.push({
-            type: 'markdown',
-            custom_template_id,
-            params: _.cloneDeep(params)
+            markdown: {
+              custom_template_id,
+              params: _.cloneDeep(params)
+            }
           })
           params = type == 1 ? _.cloneDeep(markdown_template.params) : []
           index = 0
@@ -358,35 +340,25 @@ const adapter = new class QQBotAdapter {
 
     if (params.length) {
       result.push({
-        type: 'markdown',
-        custom_template_id,
-        params
+        markdown: {
+          custom_template_id,
+          params
+        }
       })
     }
 
-    return result
+    sult
+    return re
   }
 
   async makeMarkdownMsg (data, msg) {
-    const messages = []
     const button = []
     let template = []
     let content = ''
-    let reply
+    const reply = {}
     const length = markdown_template?.params?.length || config.customMD?.[data.self_id]?.keys?.length || config.markdown.template.length
 
     const params = []
-    let param = {}
-
-    const resetParam = () => {
-      param = {
-        content: '',
-        msg_type: 0,
-        msg_seq: randomBytes(2).readUint16BE()
-      }
-    }
-
-    resetParam()
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i == 'object') i = { ...i }
@@ -397,20 +369,22 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeRecord(i.file)
         case 'video':{
           const media = await this.makeMedia(data, i.type, i.file)
-          param.media = media
-          param.msg_type = 7
           params.push({
-            content: '',
             msg_type: 7,
-            media,
-            msg_seq: randomBytes(2).readUint16BE()
+            media
           })
           break
         }
         case 'face':
           continue
-        // TODO
         case 'ark':
+          delete i.type
+          params.push({
+            msg_type: 3,
+            ark: i
+          })
+          break
+        // TODO
         case 'embed':
           // messages.push([i])
           continue
@@ -475,13 +449,10 @@ const adapter = new class QQBotAdapter {
             for (const b of result) {
               button.push(...this.makeButtons(data, b.data ? b.data : [b]))
             }
-          } else if (TmplPkg && TmplPkg?.nodeMsg) {
-            // TODO
-            messages.push(...(await this.makeMarkdownMsg(data, TmplPkg.nodeMsg(i.data))))
-            continue
           } else {
             for (const { message } of i.data) {
-              params.push(...(await this.makeMarkdownMsg(data, message)))
+              sh(...(await this.makeMarkdownMsg(data, message)))
+              params.pu
             }
             continue
           }
@@ -498,30 +469,33 @@ const adapter = new class QQBotAdapter {
           content = url
           break
         }
-        // TODO
         case 'markdown':
-          // if (typeof i.data == 'object') messages.push([{ type: 'markdown', ...i.data }])
-          // else content += i.data
+          if (typeof i.data == 'object') {
+            params.push({
+              msg_type: 2,
+              markdown: i.data,
+              msg_seq: randomBytes(2).readUint16BE()
+            })
+          } else {
+            content += i.data
+          }
           continue
-        // TODO
         case 'button':
-          // button.push(...this.makeButtons(data, i.data))
+          button.push(...this.makeButtons(data, i.data))
           continue
         case 'reply':
           if (i.id.startsWith('event_')) {
-            reply = { event_id: i.id.replace(/^event_/, '') }
+            Object.assign(reply, { event_id: i.id.replace(/^event_/, '') })
           } else {
-            reply = { msg_id: i.id }
+            Object.assign(reply, { msg_id: i.id })
           }
           continue
-        // TODO
         case 'raw':
-          // messages.push(Array.isArray(i.data) ? i.data : [i.data])
+          params.push({
+            msg_seq: randomBytes(2).readUint16BE(),
+            ...i.data
+          })
           continue
-        // TODO
-        // case 'custom':
-        //   template.push(...i.data)
-        //   break
         default:
           content += this.makeMarkdownText(JSON.stringify(i))
       }
@@ -529,15 +503,11 @@ const adapter = new class QQBotAdapter {
 
     if (content) template.push(content)
     if (template.length > length) {
-      const templates = _(template).chunk(length).map(v => this.makeMarkdownTemplate(data, v)).value()
-      messages.push(...templates)
+      const templates = _(template).chunk(length).map(v => this.makeMarkdownTemplate(data, v)).value().flat()
+      params.push(...templates)
     } else if (template.length) {
       const tmp = this.makeMarkdownTemplate(data, template)
-      if (tmp.length > 1) {
-        messages.push(...tmp.map(i => ([i])))
-      } else {
-        messages.push(tmp)
-      }
+      params.push(...tmp)
     }
 
     if (template.length && button.length < 5 && config.btnSuffix[data.self_id]) {
@@ -562,27 +532,41 @@ const adapter = new class QQBotAdapter {
     }
 
     if (button.length) {
-      for (const i of messages) {
-        if (i[0].type == 'markdown') i.push(...button.splice(0, 5))
+      for (const i of params) {
+        if (i.markdown) {
+          i.keyboard = {
+            bot_appid: data.bot.info.appid,
+            content: {
+              rows: button.splice(0, 5)
+            }
+          }
+        }
         if (!button.length) break
       }
       while (button.length) {
-        messages.push([
-          ...this.makeMarkdownTemplate(data, [' ']),
-          ...button.splice(0, 5)
-        ])
+        params.push({
+          markdown: this.makeMarkdownTemplate(data, [' '])[0],
+          keyboard: {
+            bot_appid: data.bot.info.appid,
+            content: {
+              rows: button.splice(0, 5)
+            }
+          }
+        })
       }
     }
-    if (reply) {
-      for (const i of messages) {
-        i.unshift(reply)
-      }
+    for (const i of params) {
+      Object.assign(i, {
+        content: i.content ?? '',
+        msg_type: i.msg_type ?? 2,
+        msg_seq: randomBytes(2).readUint16BE(),
+        ...reply
+      })
     }
-    return messages
+    return params
   }
 
   async makeMsg (data, msg) {
-    // const button = []
     let reply
 
     const params = []
@@ -647,7 +631,6 @@ const adapter = new class QQBotAdapter {
             reply = { msg_id: i.id }
           }
           continue
-          // TODO
         case 'markdown':
           if (typeof i.data == 'object') {
             params.push({
@@ -663,9 +646,7 @@ const adapter = new class QQBotAdapter {
             })
           }
           break
-        // TODO
         case 'button':
-          // config.sendButton && button.push(...this.makeButtons(data, i.data))
           continue
         case 'node':
           if (Handler.has('ws.tool.toImg') && config.toImg) {
@@ -692,14 +673,11 @@ const adapter = new class QQBotAdapter {
             }
           }
           break
-          // TODO
         case 'raw':
-          // if (Array.isArray(i.data)) {
-          //   messages.push(i.data)
-          //   continue
-          // }
-          // i = i.data
-          // break
+          params.push({
+            msg_seq: randomBytes(2).readUint16BE(),
+            ...i.data
+          })
           continue
         default:
           param.content += JSON.stringify(i)
@@ -715,14 +693,6 @@ const adapter = new class QQBotAdapter {
     if (param.content || param.media) {
       params.push(param)
     }
-
-    // TODO
-    // while (button.length) {
-    //   messages.push([{
-    //     type: 'keyboard',
-    //     content: { rows: button.splice(0, 5) }
-    //   }])
-    // }
 
     if (reply) {
       for (const i of params) {
@@ -765,51 +735,17 @@ const adapter = new class QQBotAdapter {
       }
     }
 
-    if (TmplPkg && TmplPkg?.Button && !data.toQQBotMD) {
-      let fncName = /\[.*?\((\S+)\)\]/.exec(data.logFnc)[1]
-      const Btn = TmplPkg.Button[fncName]
-
-      if (msg.type === 'node') data.wsids = { toImg: config.toImg }
-
-      let res
-      if (Btn) res = Btn(data, msg)
-
-      if (res?.nodeMsg) {
-        data.toQQBotMD = true
-        data.wsids = {
-          text: res.nodeMsg,
-          fnc: fncName,
-          col: res.col
-        }
-      } else if (res) {
-        data.toQQBotMD = true
-        res = segment.button(...res)
-        msg = _.castArray(msg)
-
-        let _btn = msg.findIndex(b => b.type === 'button')
-        if (_btn === -1) msg.push(res)
-        else msg[_btn] = res
-      }
-    }
-
     // TODO: 等个有缘人提供有md和按钮权限的账号
-    // if ((config.markdown[data.self_id] || (data.toQQBotMD === true && config.customMD[data.self_id])) && data.toQQBotMD !== false) {
-    //   if (config.markdown[data.self_id] == 'raw') msgs = await this.makeRawMarkdownMsg(data, msg)
-    //   else msgs = await this.makeMarkdownMsg(data, msg)
-
-    //   const [mds, btns] = _.partition(msgs[0], v => v.type === 'markdown')
-    //   if (mds.length > 1) {
-    //     for (const idx in mds) {
-    //       msgs = mds[idx]
-    //       if (idx === mds.length - 1) msgs.push(...btns)
-    //       await sendMsg()
-    //     }
-    //     return rets
-    //   }
-    // } else {
-    //   msgs = await this.makeMsg(data, msg)
-    // }
-    msgs = await this.makeMsg(data, msg)
+    if ((config.markdown[data.self_id] || (data.toQQBotMD === true && config.customMD[data.self_id])) && data.toQQBotMD !== false) {
+      // if (config.markdown[data.self_id] == 'raw') {
+      //   msgs = await this.makeRawMarkdownMsg(data, msg)
+      // } else {
+      //   msgs = await this.makeMarkdownMsg(data, msg)
+      // }
+      msgs = await this.makeMarkdownMsg(data, msg)
+    } else {
+      msgs = await this.makeMsg(data, msg)
+    }
 
     if (await sendMsg() === false) {
       msgs = await this.makeMsg(data, msg)
@@ -994,6 +930,7 @@ const adapter = new class QQBotAdapter {
         data.reply = msg => this.sendGroupMsg({
           ...data, group_id: d.group_id
         }, msg, data.message_id)
+        this.setGroupMap(data)
         // TODO: 可以添加config是否添加atbot
         // data.message.unshift({ type: "at", qq: data.self_id })
         break
@@ -1008,79 +945,6 @@ const adapter = new class QQBotAdapter {
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
-  async makeCallback (id, event) {
-    const reply = event.reply.bind(event)
-    event.reply = async (...args) => {
-      try {
-        return await reply(...args)
-      } catch (err) {
-        Bot.makeLog('debug', ['回复按钮点击事件错误', err], data.self_id)
-      }
-    }
-
-    const data = {
-      raw: event,
-      bot: Bot[id],
-      self_id: id,
-      post_type: 'message',
-      message_id: event.notice_id,
-      message_type: event.notice_type,
-      sub_type: 'callback',
-      get user_id () { return this.sender.user_id },
-      sender: { user_id: `${id}${this.sep}${event.operator_id}` },
-      message: [],
-      raw_message: ''
-    }
-
-    const callback = data.bot.callback[event.data?.resolved?.button_id]
-    if (callback) {
-      if (!event.group_id && callback.group_id) { event.group_id = callback.group_id }
-      data.message_id = callback.id
-      if (callback.message_id.length) {
-        for (const id of callback.message_id) { data.message.push({ type: 'reply', id }) }
-        data.raw_message += `[回复：${callback.message_id}]`
-      }
-      data.message.push({ type: 'text', text: callback.message })
-      data.raw_message += callback.message
-    } else {
-      if (event.data?.resolved?.button_id) {
-        data.message.push({ type: 'reply', id: event.data?.resolved?.button_id })
-        data.raw_message += `[回复：${event.data?.resolved?.button_id}]`
-      }
-      if (event.data?.resolved?.button_data) {
-        data.message.push({ type: 'text', text: event.data?.resolved?.button_data })
-        data.raw_message += event.data?.resolved?.button_data
-      } else {
-        event.reply(1)
-      }
-    }
-    event.reply(0)
-
-    switch (data.message_type) {
-      case 'direct':
-      case 'friend':
-        data.message_type = 'private'
-        Bot.makeLog('info', [`好友按钮点击事件：[${data.user_id}]`, data.raw_message], data.self_id)
-
-        data.reply = msg => this.sendFriendMsg({ ...data, user_id: event.operator_id }, msg, { id: data.message_id })
-        await this.setFriendMap(data)
-        break
-      case 'group':
-        data.group_id = `${id}${this.sep}${event.group_id}`
-        Bot.makeLog('info', [`群按钮点击事件：[${data.group_id}, ${data.user_id}]`, data.raw_message], data.self_id)
-
-        data.reply = msg => this.sendGroupMsg({ ...data, group_id: event.group_id }, msg, { id: data.message_id })
-        await this.setGroupMap(data)
-        break
-      case 'guild':
-        break
-      default:
-        Bot.makeLog('warn', ['未知按钮点击事件', event], data.self_id)
-    }
-
-    Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
-  }
-
   makeNotice (id, event) {
     const data = {
       raw: event,
@@ -1090,7 +954,9 @@ const adapter = new class QQBotAdapter {
       message_id: `event_${event.id}`
     }
 
-    const user_id = `${id}${this.sep}${event.d.op_member_openid || event.d.openid}`
+    const openid = event.d.op_member_openid || event.d.openid || event.d.group_member_openid || event.d.author.union_openid
+
+    const user_id = `${id}${this.sep}${openid}`
     const group_id = `${id}${this.sep}${event.d.group_openid}`
 
     switch (event.t) {
@@ -1101,7 +967,7 @@ const adapter = new class QQBotAdapter {
           user_id: id,
           group_id
         })
-        Bot.makeLog('info', `机器人被邀请加入群聊：${event.d.group_openid} 操作人：${event.d.op_member_openid}`, id)
+        Bot.makeLog('info', `机器人被邀请加入群聊：${event.d.group_openid} 操作人：${openid}`, id)
         Bot[id].dau.setDau('group_increase', data)
         const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'template', 'groupIncreaseMsg.js')
         if (fs.existsSync(path)) {
@@ -1127,8 +993,9 @@ const adapter = new class QQBotAdapter {
           operator_id: user_id,
           group_id
         })
-        Bot.makeLog('info', `机器人被移出群聊：${event.d.group_openid} 操作人：${event.d.op_member_openid}`, id)
+        Bot.makeLog('info', `机器人被移出群聊：${event.d.group_openid} 操作人：${openid}`, id)
         Bot[id].dau.setDau('group_decrease', data)
+        data.bot.gl.delete(group_id)
         break
       case 'GROUP_MSG_RECEIVE':
         Object.assign(data, {
@@ -1138,7 +1005,7 @@ const adapter = new class QQBotAdapter {
           operator_id: user_id,
           group_id
         })
-        Bot.makeLog('info', `打开群主动消息推送：${event.d.group_openid} 操作人: ${event.d.op_member_openid}`, id)
+        Bot.makeLog('info', `打开群主动消息推送：${event.d.group_openid} 操作人: ${openid}`, id)
         break
       case 'GROUP_MSG_REJECT':
         Object.assign(data, {
@@ -1148,13 +1015,25 @@ const adapter = new class QQBotAdapter {
           operator_id: user_id,
           group_id
         })
-        Bot.makeLog('info', `关闭群主动消息推送：${event.d.group_openid} 操作人: ${event.d.op_member_openid}`, id)
+        Bot.makeLog('info', `关闭群主动消息推送：${event.d.group_openid} 操作人: ${openid}`, id)
         break
-      // TODO
       case 'FRIEND_ADD':
-        return
+        Object.assign(data, {
+          notice_type: 'friend',
+          sub_type: 'increase',
+          user_id
+        })
+        Bot.makeLog('info', `好友增加：${openid}`, id)
+        break
       case 'FRIEND_DEL':
-        return
+        Object.assign(data, {
+          notice_type: 'friend',
+          sub_type: 'decrease',
+          user_id
+        })
+        Bot.makeLog('info', `好友减少：${openid}`, id)
+        data.bot.fl.delete(user_id)
+        break
       case 'C2C_MSG_RECEIVE':
         Object.assign(data, {
           notice_type: 'friend',
@@ -1162,7 +1041,7 @@ const adapter = new class QQBotAdapter {
           user_id,
           operator_id: user_id
         })
-        Bot.makeLog('info', `打开好友主动消息推送：${event.d.openid}`, id)
+        Bot.makeLog('info', `打开好友主动消息推送：${openid}`, id)
         break
       case 'C2C_MSG_REJECT':
         Object.assign(data, {
@@ -1171,17 +1050,29 @@ const adapter = new class QQBotAdapter {
           user_id,
           operator_id: user_id
         })
-        Bot.makeLog('info', `关闭好友主动消息推送：${event.d.openid}`, id)
+        Bot.makeLog('info', `关闭好友主动消息推送：${openid}`, id)
         break
-      // TODO
       case 'INTERACTION_CREATE':
-        return
+        if (event.d.type !== 11 || event.d.chat_type === 0) {
+          return
+        }
+        if (event.d.chat_type === 1) {
+          Object.assign(data, {
+            notice_type: 'group',
+            sub_type: 'interaction',
+            user_id,
+            group_id
+          })
+        } else {
+          Object.assign(data, {
+            notice_type: 'friend',
+            sub_type: 'interaction',
+            user_id
+          })
+        }
+        Bot.makeLog('info', `点击消息按钮：${openid}`, id)
+        break
     }
-
-    // switch (data.sub_type) {
-    //   case 'action':
-    //     return this.makeCallback(id, event)
-    // }
 
     Bot.em(`${data.post_type}.${data.notice_type}.${data.sub_type}`, data)
   }
@@ -1341,8 +1232,6 @@ const adapter = new class QQBotAdapter {
 Bot.adapter.push(adapter)
 
 const setMap = {
-  二维码: 'toQRCode',
-  按钮回调: 'toCallback',
   转图片: 'toImg',
   调用统计: 'callStats'
 }
