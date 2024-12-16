@@ -1,10 +1,10 @@
 import _ from 'lodash'
 import fs from 'node:fs'
 import QRCode from 'qrcode'
+import { ulid } from 'ulid'
 import { join } from 'node:path'
 import imageSize from 'image-size'
-import { randomUUID } from 'node:crypto'
-import { encode as encodeSilk } from 'silk-wasm'
+import { encode as encodeSilk, isSilk } from 'silk-wasm'
 import {
   Dau,
   importJS,
@@ -14,7 +14,10 @@ import {
   configSave,
   refConfig,
   splitMarkDownTemplate,
-  getMustacheTemplating
+  getMustacheTemplating,
+  runServer,
+  WebSocket,
+  setUinMap
 } from './Model/index.js'
 
 const QQBot = await (async () => {
@@ -37,7 +40,7 @@ const adapter = new class QQBotAdapter {
     this.id = 'QQBot'
     this.name = 'QQBot'
     this.path = 'data/QQBot/'
-    this.version = 'qq-group-bot v11.45.14'
+    this.version = 'qq-group-bot-webhook v11.45.14'
 
     if (typeof config.toQRCode == 'boolean') {
       this.toQRCodeRegExp = config.toQRCode ? /(?<!\[(.*?)\]\()https?:\/\/[-\w_]+(\.[-\w_]+)+([-\w.,@?^=%&:/~+#]*[-\w@?^=%&/~+#])?/g : false
@@ -46,6 +49,7 @@ const adapter = new class QQBotAdapter {
     }
 
     this.sep = config.sep || ((process.platform == 'win32') && '') || ':'
+    this.appid = {}
   }
 
   async makeRecord (file) {
@@ -60,23 +64,20 @@ const adapter = new class QQBotAdapter {
         }
       }
     }
+    const buffer = await Bot.Buffer(file)
+    if (!Buffer.isBuffer(buffer)) return file
+    if (isSilk(buffer)) return buffer
 
-    const inputFile = join('temp', randomUUID())
-    const pcmFile = join('temp', randomUUID())
-
+    const convFile = join('temp', ulid())
     try {
-      fs.writeFileSync(inputFile, await Bot.Buffer(file))
-      await Bot.exec(`ffmpeg -i "${inputFile}" -f s16le -ar 48000 -ac 1 "${pcmFile}"`)
-      file = Buffer.from((await encodeSilk(fs.readFileSync(pcmFile), 48000)).data)
+      await fs.writeFile(convFile, buffer)
+      await Bot.exec(`ffmpeg -i "${convFile}" -f s16le -ar 48000 -ac 1 "${convFile}.pcm"`)
+      file = Buffer.from((await encodeSilk(await fs.readFile(`${convFile}.pcm`), 48000)).data)
     } catch (err) {
       logger.error(`silk 转码错误：${err}`)
     }
 
-    for (const i of [inputFile, pcmFile]) {
-      try {
-        fs.unlinkSync(i)
-      } catch (err) { }
-    }
+    for (const i of [convFile, `${convFile}.pcm`]) { fs.unlink(i).catch(() => {}) }
     return file
   }
 
@@ -137,7 +138,7 @@ const adapter = new class QQBotAdapter {
 
   makeButton (data, button) {
     const msg = {
-      id: randomUUID(),
+      id: ulid(),
       render_data: {
         label: button.text,
         visited_label: button.clicked_text,
@@ -1343,6 +1344,129 @@ const adapter = new class QQBotAdapter {
     return Bot.getMap(`${this.path}${id}/Member`)
   }
 
+  onMessage (id, event) {
+    try {
+      if (event.op !== 0) {
+        return
+      }
+      const data = {
+        raw: event,
+        bot: Bot[id],
+        self_id: id,
+        post_type: 'notice',
+        message_id: `event_${event.id}`
+      }
+
+      const openid = event.d.op_member_openid || event.d.openid || event.d.group_member_openid || event.d.author.union_openid
+
+      const user_id = `${id}${this.sep}${openid}`
+      const group_id = `${id}${this.sep}${event.d.group_openid}`
+      switch (event.t) {
+        case 'GROUP_ADD_ROBOT': {
+          Object.assign(data, {
+            notice_type: 'group',
+            sub_type: 'increase',
+            user_id: id,
+            group_id
+          })
+          Bot.makeLog('info', `机器人被邀请加入群聊：${event.d.group_openid} 操作人：${openid}`, id)
+          Bot[id].dau.setDau('group_increase', data)
+          const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'template', 'groupIncreaseMsg.js')
+          if (fs.existsSync(path)) {
+            import(`file://${path}`).then(i => i.default).then(async i => {
+              let msg
+              if (typeof i === 'function') {
+                msg = await i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${data.user_id}`, data.self_id)
+              } else {
+                msg = i
+              }
+              if (msg?.length > 0) {
+                if (!Array.isArray(msg)) {
+                  msg = [msg]
+                }
+                msg.push({ type: 'reply', id: data.message_id })
+                this.sendGroupMsg({
+                  ...data, group_id: event.d.group_openid
+                }, msg)
+              }
+            })
+          }
+          break
+        }
+        case 'GROUP_DEL_ROBOT':
+          Object.assign(data, {
+            notice_type: 'group',
+            sub_type: 'decrease',
+            user_id: id,
+            operator_id: user_id,
+            group_id
+          })
+          Bot.makeLog('info', `机器人被移出群聊：${event.d.group_openid} 操作人：${openid}`, id)
+          Bot[id].dau.setDau('group_decrease', data)
+          data.bot.gl.delete(group_id)
+          break
+        case 'GROUP_MSG_RECEIVE':
+          Object.assign(data, {
+            notice_type: 'group',
+            sub_type: 'msg_receive',
+            user_id,
+            operator_id: user_id,
+            group_id
+          })
+          Bot.makeLog('info', `打开群主动消息推送：${event.d.group_openid} 操作人: ${openid}`, id)
+          break
+        case 'GROUP_MSG_REJECT':
+          Object.assign(data, {
+            notice_type: 'group',
+            sub_type: 'msg_reject',
+            user_id,
+            operator_id: user_id,
+            group_id
+          })
+          Bot.makeLog('info', `关闭群主动消息推送：${event.d.group_openid} 操作人: ${openid}`, id)
+          break
+        case 'FRIEND_ADD':
+          Object.assign(data, {
+            notice_type: 'friend',
+            sub_type: 'increase',
+            user_id
+          })
+          Bot.makeLog('info', `好友增加：${openid}`, id)
+          break
+        case 'FRIEND_DEL':
+          Object.assign(data, {
+            notice_type: 'friend',
+            sub_type: 'decrease',
+            user_id
+          })
+          Bot.makeLog('info', `好友减少：${openid}`, id)
+          data.bot.fl.delete(user_id)
+          break
+        case 'C2C_MSG_RECEIVE':
+          Object.assign(data, {
+            notice_type: 'friend',
+            sub_type: 'msg_receive',
+            user_id,
+            operator_id: user_id
+          })
+          Bot.makeLog('info', `打开好友主动消息推送：${openid}`, id)
+          break
+        case 'C2C_MSG_REJECT':
+          Object.assign(data, {
+            notice_type: 'friend',
+            sub_type: 'msg_reject',
+            user_id,
+            operator_id: user_id
+          })
+          Bot.makeLog('info', `关闭好友主动消息推送：${openid}`, id)
+          break
+        default:
+          Bot[id].sdk.dispatchEvent(event.t, event)
+          break
+      }
+    } catch (error) { }
+  }
+
   async connect (token) {
     token = token.split(':')
     const id = token[0]
@@ -1350,42 +1474,17 @@ const adapter = new class QQBotAdapter {
       ...config.bot,
       appid: token[1],
       token: token[2],
-      secret: token[3],
-      intents: [
-        'GUILDS',
-        'GUILD_MEMBERS',
-        'GUILD_MESSAGE_REACTIONS',
-        'DIRECT_MESSAGE',
-        'INTERACTION',
-        'MESSAGE_AUDIT'
-      ]
+      secret: token[3]
     }
-
-    if (Number(token[4])) opts.intents.push('GROUP_AT_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE')
-
-    if (Number(token[5])) opts.intents.push('GUILD_MESSAGES')
-    else opts.intents.push('PUBLIC_GUILD_MESSAGES')
+    setUinMap(opts.appid, opts.uin)
 
     Bot[id] = {
       adapter: this,
       sdk: new QQBot(opts),
-      login () {
-        return new Promise(resolve => {
-          this.sdk.sessionManager.once('READY', resolve)
-          this.sdk.start()
-        })
-      },
-      logout () {
-        return new Promise(resolve => {
-          this.sdk.ws.once('close', resolve)
-          this.sdk.stop()
-        })
-      },
-
       uin: id,
-      info: { id, ...opts },
-      get nickname () { return this.sdk.nickname },
-      get avatar () { return `https://q.qlogo.cn/g?b=qq&s=0&nk=${id}` },
+      info: { id, ...opts, avatar: `https://q.qlogo.cn/g?b=qq&s=0&nk=${id}` },
+      get nickname () { return this.info.username },
+      get avatar () { return this.info.avatar },
 
       version: {
         id: this.id,
@@ -1408,7 +1507,7 @@ const adapter = new class QQBotAdapter {
       gl: await this.getGroupMap(id),
       gml: await this.getMemberMap(id),
 
-      dau: new Dau(id, this.sep, config.dauDB),
+      dau: new Dau(id, this.sep),
 
       callback: {}
     }
@@ -1429,18 +1528,33 @@ const adapter = new class QQBotAdapter {
       }
     }
 
-    await Bot[id].login()
+    const transferWebSocket = config.webhook.ws[id]
+
+    if (transferWebSocket) {
+      Bot[id].ws = new WebSocket(
+        this.onMessage.bind(this),
+        id,
+        transferWebSocket.url,
+        transferWebSocket.reconn,
+        transferWebSocket.max,
+        transferWebSocket.ping
+      )
+    }
+
+    await Bot[id].sdk.sessionManager.getAccessToken()
+    Object.assign(Bot[id].info, await Bot[id].sdk.getSelfInfo())
     await Bot[id].dau.init()
 
     Bot[id].sdk.on('message', event => this.makeMessage(id, event))
     Bot[id].sdk.on('notice', event => this.makeNotice(id, event))
 
-    Bot.makeLog('mark', `${this.name}(${this.id}) ${this.version} 已连接`, id)
+    Bot.makeLog('mark', `${this.name}(${this.id}) ${this.version} ${Bot[id].nickname} 已连接`, id)
     Bot.em(`connect.${id}`, { self_id: id })
     return true
   }
 
   async load () {
+    this.fastify = await runServer(this.onMessage.bind(this))
     for (const token of config.token) {
       await new Promise(resolve => {
         adapter.connect(token).then(resolve)

@@ -10,12 +10,42 @@ TRSS-Yunzai QQBot 适配器 插件
 
 建议使用TRSS原版,此版本为`个人自用`版,会在`任意时间`直接进行更改,且`不会`与TRSS一致
 
+# webhook
+
+在config中设置webhook的值
+```yaml
+# 若配置ws的值, 则使用ws中转服务器
+# 若没配置ws则使用对应的ssl证书并在指定的prot端口的path路径上监听
+# 需要在DNS记录添加一个A记录到服务器的IP地址 然后使用对应的域名 
+# 开发者后台添加请求地址为: https://域名:port/path
+webhook:
+  # 目前回调地址允许配置的端口号为： 80、443、8080、8443。
+  port: 443
+  path: /webhook
+  # 是否需要签名验证
+  signature: true
+  # 若不配置此项则需要自行反代
+  ssl:
+    key: /path/to/your.key
+    cert: /path/to/your.pem
+    ca: /path/to/your.crt
+  ws:
+    BotQQ:
+      url: wss://127.0.0.1:8080/ws
+      # 重连间隔 单位毫秒
+      reconn: 5000
+      # 最大重连次数 0为无限重连
+      max: 0
+      # 心跳间隔 单位毫秒
+      ping: 5000
+```
+
 ## 自用Fork版
 
 1. 转发消息改为渲染成图片,需要安装`ws-plugin`
 2. `#QQBot设置转换开启`配合`#ws绑定`实现互通数据
 3. `#QQBotDAU` and `#QQBotDAUpro`
-4. `Model/template/groupIncreaseMsg_default.js`中`自定义入群发送主动消息`
+4. `Model/template/groupIncreaseMsg_default.js`中`自定义入群发送被动消息`
 5. `config/QQBot.yaml`中使用以下自定义模版,如果设置了全局md会优先使用自定义模版,配合`e.toQQBotMD = true`将特定消息`转换`成md,亦可在`全局md模式下`通过`e.toQQBotMD = false`将特定消息`不转换`成md
    - 方法1: 直接修改`config/QQBot.yaml` **(推荐)**
      ```yml
@@ -81,23 +111,18 @@ TRSS-Yunzai QQBot 适配器 插件
 12. ~~`#QQBot一键群发`: 需要先配置模版 `template/oneKeySendGroupMsg_default.js`~~
 13. `config/QQBot.yaml`中`markdownImgScale: 1`是否对markdown中的图片进行等比例缩放,0.5为缩小50%,1.5为放大50%,以此类推
 14. `config/QQBot.yaml`中`sendButton: true`未开启全局MD时是否单独发送按钮
-15. `config/QQBot.yaml`中`dauDB: level`选择存储dau数据的数据库,可选: `level`, `redis`,以及`false`关闭dau统计(仅每日发言用户和群)
-    - `level`
-      - 优点: 统计了大部分数据
-      - 缺点: 缓存存一份,level存一份
-    - `redis`
-      - 优点: 大部分使用redis存储,不会缓存
-      - 缺点: 没有缓存所以有些没统计
 16. 已适配YePanel,提供dau统计和设置功能
 
 ## 安装教程
 
 1. 准备：[TRSS-Yunzai](../../../Yunzai)
-2. ~~输入：`#安装QQBot-Plugin`~~
+2. `git clone git clone https://gitee.com/xiaoye12123/Yunzai-QQBot-Plugin.git plugins/QQBot-Plugin && pnpm i`
 3. 打开：[QQ 开放平台](https://q.qq.com) 创建 Bot：  
    ① 创建机器人  
    ② 开发设置 → 得到 `机器人QQ号:AppID:Token:AppSecret`
-4. 输入：`#QQBot设置机器人QQ号:AppID:Token:AppSecret:[01]:[01]`
+4. 输入：`#QQBot设置机器人QQ号:AppID:Token:AppSecret`
+5. 修改配置文件QQbot.yaml中的webhook配置
+6. 重启机器人
 
 ## 格式示例
 
