@@ -12,7 +12,7 @@ TRSS-Yunzai QQBot 适配器 插件
 
 # webhook
 
-基于qq-official-bot的sdk实现, 仅接收消息方式不同
+基于qq-official-bot的sdk实现, 仅接收消息方式不同, 待ws不能使用后合并到main分支
 
 ```yaml
 # 若配置ws的值, 则使用ws中转服务器
