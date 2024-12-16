@@ -700,7 +700,7 @@ const adapter = new class QQBotAdapter {
     return params
   }
 
-  async sendMsg (data, msg, msg_id) {
+  async sendMsg (data, msg) {
     const rets = { message_id: [], data: [], error: [] }
     let msgs
 
@@ -710,7 +710,7 @@ const adapter = new class QQBotAdapter {
           Bot.makeLog('debug', ['发送消息', i], data.self_id)
           const send = async param => {
             const target = data.group_id ? `groups/${data.group_id}` : `users/${data.user_id}`
-            const reply = msg_id?.startsWith('event_') ? { event_id: msg_id.replace(/^event_/, '') } : { msg_id }
+            const reply = data.message_id?.startsWith('event_') ? { event_id: data.message_id.replace(/^event_/, '') } : { msg_id: data.message_id }
             return await data.bot.request('post', `v2/${target}/messages`, {
               data: {
                 ...param,
@@ -754,11 +754,12 @@ const adapter = new class QQBotAdapter {
     return rets
   }
 
-  sendFriendMsg (data, msg, msg_id) {
-    return this.sendMsg(data, msg, msg_id)
+  sendFriendMsg (data, msg) {
+    Bot.makeLog('info', `发送好友消息：[${data.user_id}] ${Bot.String(msg)}`, data.self_id)
+    return this.sendMsg(data, msg)
   }
 
-  async sendGroupMsg (data, msg, msg_id) {
+  async sendGroupMsg (data, msg) {
     if (Handler.has('QQBot.group.sendMsg')) {
       const res = await Handler.call(
         'QQBot.group.sendMsg',
@@ -768,15 +769,15 @@ const adapter = new class QQBotAdapter {
           group_id: `${data.self_id}${this.sep}${data.group_id}`,
           raw_group_id: data.group_id,
           user_id: data.user_id,
-          msg,
-          msg_id
+          msg
         }
       )
       if (res !== false) {
         return res
       }
     }
-    return this.sendMsg(data, msg, msg_id)
+    Bot.makeLog('info', `发送群消息：[${data.group_id}] ${Bot.String(msg)}`, data.self_id)
+    return this.sendMsg(data, msg)
   }
 
   async recallMsg (data, recall, message_id) {
@@ -912,9 +913,7 @@ const adapter = new class QQBotAdapter {
         Bot.makeLog('info', `好友消息：[${data.user_id}] ${data.raw_message}`, data.self_id)
         data.message_type = 'private'
         data.sub_type = 'friend'
-        data.reply = msg => this.sendFriendMsg({
-          ...data, user_id: d.author.id
-        }, msg, data.message_id)
+        data.reply = msg => this.sendFriendMsg({ ...data, user_id: d.author.id }, msg)
         this.setFriendMap(data)
         break
       case 'GROUP_AT_MESSAGE_CREATE': {
@@ -925,17 +924,12 @@ const adapter = new class QQBotAdapter {
         const logStat = filterLog.includes(_.trim(data.raw_message)) ? 'debug' : 'info'
         Bot.makeLog(logStat, `群消息：[${data.group_id}, ${data.user_id}] ${data.raw_message}`, data.self_id)
 
-        data.reply = msg => this.sendGroupMsg({
-          ...data, group_id: d.group_id
-        }, msg, data.message_id)
+        data.reply = msg => this.sendGroupMsg({ ...data, group_id: d.group_id }, msg)
         this.setGroupMap(data)
         // TODO: 可以添加config是否添加atbot
         // data.message.unshift({ type: "at", qq: data.self_id })
         break
       }
-      default:
-        Bot.makeLog('warn', ['未知消息', event], id)
-        return
     }
 
     data.bot.stat.recv_msg_cnt++
@@ -977,7 +971,7 @@ const adapter = new class QQBotAdapter {
               msg = i
             }
             if (msg?.length > 0) {
-              this.sendMsg({ ...data, group_id: event.d.group_openid }, msg, data.message_id)
+              this.sendMsg({ ...data, group_id: event.d.group_openid }, msg)
             }
           })
         }
@@ -1070,6 +1064,11 @@ const adapter = new class QQBotAdapter {
         }
         Bot.makeLog('info', `点击消息按钮：${openid}`, id)
         break
+    }
+    if (data.notice_type === 'group') {
+      data.reply = msg => this.sendGroupMsg({ ...data, group_id: event.d.group_openid }, msg)
+    } else if (data.notice_type === 'friend') {
+      data.reply = msg => this.sendFriendMsg({ ...data, user_id: openid }, msg)
     }
 
     Bot.em(`${data.post_type}.${data.notice_type}.${data.sub_type}`, data)

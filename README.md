@@ -12,7 +12,8 @@ TRSS-Yunzai QQBot 适配器 插件
 
 # webhook test
 
-在config中设置webhook的值
+原生实现, 不基于任何sdk, 暂未适配md模版
+
 ```yaml
 # 若配置ws的值, 则使用ws中转服务器
 # 若没配置ws则使用对应的ssl证书并在指定的prot端口的path路径上监听
