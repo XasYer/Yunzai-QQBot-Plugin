@@ -1292,37 +1292,12 @@ const adapter = new class QQBotAdapter {
     switch (data.sub_type) {
       case 'action':
         return this.makeCallback(id, event)
-      case 'increase':
-        Bot[data.self_id].dau.setDau('group_increase', data)
-        if (event.notice_type === 'group') {
-          const path = join(process.cwd(), 'plugins', 'QQBot-Plugin', 'Model', 'template', 'groupIncreaseMsg.js')
-          if (fs.existsSync(path)) {
-            import(`file://${path}`).then(i => i.default).then(async i => {
-              let msg
-              if (typeof i === 'function') {
-                msg = await i(`${data.self_id}${this.sep}${event.group_id}`, `${data.self_id}${this.sep}${data.user_id}`, data.self_id)
-              } else {
-                msg = i
-              }
-              if (msg?.length > 0) {
-                this.sendMsg(data, msg => data.bot.sdk.sendGroupMessage(event.group_id, msg), msg)
-              }
-            })
-          }
-        }
-        return
-      case 'decrease':
-        Bot[data.self_id].dau.setDau('group_decrease', data)
       case 'update':
       case 'member.increase':
       case 'member.decrease':
       case 'member.update':
       case 'add':
       case 'remove':
-        break
-      case 'receive_open':
-      case 'receive_close':
-        Bot.em(`${data.post_type}.${data.notice_type}.${data.sub_type}`, data)
         break
       default:
         // console.log('event', event)
@@ -1593,7 +1568,7 @@ export class QQBotAdapter extends plugin {
           permission: config.permission
         },
         {
-          reg: /^#q+bot设置[0-9]+:[0-9]+:.+:.+:[01]:[01]$/i,
+          reg: /^#q+bot设置[0-9]+:[0-9]+:.+:.+(:[01]:[01])?$/i,
           fnc: 'Token',
           permission: config.permission
         },
