@@ -61,6 +61,7 @@ export default class level {
   async get (key) {
     try {
       let value = await this.db.get(key)
+      if (!value) return null
       // const expiredTime = value.expiredTime;
       // 检查是否需要转换回原始类型
       if (value.__originalValue) {
