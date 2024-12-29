@@ -1358,7 +1358,8 @@ const adapter = new class QQBotAdapter {
         'DIRECT_MESSAGE',
         'INTERACTION',
         'MESSAGE_AUDIT'
-      ]
+      ],
+      mode: 'websocket'
     }
 
     if (Number(token[4])) opts.intents.push('GROUP_AT_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE')
