@@ -1449,7 +1449,8 @@ const adapter = new class QQBotAdapter {
       ...config.bot,
       appid: token[1],
       token: token[2],
-      secret: token[3]
+      secret: token[3],
+      mode: 'websocket'
     }
     setUinMap(opts.appid, opts.uin)
 
