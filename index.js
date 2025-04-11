@@ -239,9 +239,10 @@ const adapter = new class QQBotAdapter {
           messages.push([i])
           break
         case 'file':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i.type)
-          content += await this.makeRawMarkdownText(data, `文件：${i.file}`, button)
-          break
+          // if (i.file) i.file = await Bot.fileToUrl(i.file, i.type)
+          // content += await this.makeRawMarkdownText(data, `文件：${i.file}`, button)
+          // break
+          return []
         case 'at':
           if (i.qq == 'all') { content += '@everyone' } else { content += `<@${i.qq?.replace?.(`${data.self_id}${this.sep}`, '')}>` }
           break
@@ -396,10 +397,11 @@ const adapter = new class QQBotAdapter {
           messages.push([i])
           break
         case 'file':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
-          button.push(...this.makeButtons(data, [[{ text: i.name || i.file, link: i.file }]]))
-          content += '[文件(请点击按钮查看)]'
-          break
+          // if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
+          // button.push(...this.makeButtons(data, [[{ text: i.name || i.file, link: i.file }]]))
+          // content += '[文件(请点击按钮查看)]'
+          // break
+          return []
         case 'at':
           if (i.qq == 'all') content += '@everyone'
           else {
@@ -588,9 +590,10 @@ const adapter = new class QQBotAdapter {
           }
           break
         case 'file':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
-          i = { type: 'text', text: `文件：${i.file}` }
-          break
+          // if (i.file) i.file = await Bot.fileToUrl(i.file, i, i.type)
+          // i = { type: 'text', text: `文件：${i.file}` }
+          // break
+          return []
         case 'reply':
           if (i.id.startsWith('event_')) {
             reply = { type: 'reply', event_id: i.id.replace(/^event_/, '') }
@@ -794,9 +797,10 @@ const adapter = new class QQBotAdapter {
         case 'record':
         case 'video':
         case 'file':
-          if (i.file) i.file = await Bot.fileToUrl(i.file, i)
-          i = { type: 'text', text: `文件：${i.file}` }
-          break
+          // if (i.file) i.file = await Bot.fileToUrl(i.file, i)
+          // i = { type: 'text', text: `文件：${i.file}` }
+          // break
+          return []
         case 'reply':
           if (i.id.startsWith('event_')) {
             reply = { type: 'reply', event_id: i.id.replace(/^event_/, '') }
