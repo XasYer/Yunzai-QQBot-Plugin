@@ -25,16 +25,6 @@ export const runServer = async (onMessage, fastify = null) => {
 
   await fastify.register(fastifyWebSocket)
 
-  // 为什么INTERACTION_CREATE事件的body.toString()之后的JSON字符串有空格??????????????????????????????
-  fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
-    try {
-      req.rawBody = body
-      done(null, JSON.parse(body.toString()))
-    } catch (err) {
-      done(err)
-    }
-  })
-
   fastify.post(config.webhook.path || '/', async (req, reply) => {
     const end = () => reply.send({ op: 12 })
     // 没有body
@@ -49,12 +39,12 @@ export const runServer = async (onMessage, fastify = null) => {
     const uin = getUinMap(appid)
     // 没有缓存uin
     if (!uin) {
-      return false
+      return end()
     }
     const bot = Bot[uin]
     // bot不存在
     if (!bot) {
-      return false
+      return end()
     }
     const secret = bot.privacy().secret
     // 没有secret
@@ -80,7 +70,7 @@ export const runServer = async (onMessage, fastify = null) => {
 
           const keyPair = getKeyPair(appid, secret)
 
-          const msg = Buffer.concat([Buffer.from(time), req.rawBody])
+          const msg = Buffer.from(time + JSON.stringify(body))
 
           // 验证签名
           const isValid = nodeForge.pki.ed25519.verify({ message: msg, signature, publicKey: keyPair.publicKey })
