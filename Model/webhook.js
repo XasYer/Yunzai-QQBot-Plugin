@@ -116,7 +116,7 @@ export const runServer = async (onMessage, fastify = null) => {
     logger.error('[QQBot-Plugin:Webhook-Server-Error]', error)
   })
 
-  fastify.listen({ port: 8443, host: '0.0.0.0' }, (err, address) => {
+  fastify.listen({ port: config.webhook.port, host: '0.0.0.0' }, (err, address) => {
     if (err) {
       logger.error('[QQBot-Plugin:Webhook-Server-listen]', err)
     } else {
