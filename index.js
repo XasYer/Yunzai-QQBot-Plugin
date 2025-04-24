@@ -1451,6 +1451,7 @@ const adapter = new class QQBotAdapter {
     const id = token[0]
     const opts = {
       ...config.bot,
+      uin: token[0],
       appid: token[1],
       token: token[2],
       secret: token[3],

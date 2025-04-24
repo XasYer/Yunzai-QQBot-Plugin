@@ -34,21 +34,24 @@ export const runServer = async (onMessage, fastify = null) => {
     const appid = req.headers['x-bot-appid']
     // 请求头没有appid
     if (!appid) {
+      logger.debug('[QQBot-Plugin:Webhook-Server] 请求头没有appid', req.headers)
       return end()
     }
     const uin = getUinMap(appid)
     // 没有缓存uin
     if (!uin) {
+      logger.debug('[QQBot-Plugin:Webhook-Server] 没有缓存uin', appid)
       return end()
     }
     const bot = Bot[uin]
-    // bot不存在
     if (!bot) {
+      logger.debug('[QQBot-Plugin:Webhook-Server] bot不存在', uin)
       return end()
     }
-    const secret = bot.privacy().secret
+    const secret = bot.info.secret
     // 没有secret
     if (!secret) {
+      logger.debug('[QQBot-Plugin:Webhook-Server] 没有secret', uin)
       return end()
     }
     const body = req.body
@@ -59,12 +62,14 @@ export const runServer = async (onMessage, fastify = null) => {
           const ed25519 = req.headers['x-signature-ed25519']
           // 没有时间戳或签名
           if (!time || !ed25519) {
+            logger.debug('[QQBot-Plugin:Webhook-Server] 没有时间戳或签名', req.headers)
             return end()
           }
           const signature = Buffer.from(ed25519, 'hex')
 
           // 检查签名长度是否为 64 字节 以及 签名的最后一位的高 3 位是否为 0
           if (signature.length !== 64 || (signature[63] & 224) !== 0) {
+            logger.debug('[QQBot-Plugin:Webhook-Server] 签名长度或最后一位高 3 位错误', signature.length, signature[63] & 224)
             return end()
           }
 
@@ -75,6 +80,7 @@ export const runServer = async (onMessage, fastify = null) => {
           // 验证签名
           const isValid = nodeForge.pki.ed25519.verify({ message: msg, signature, publicKey: keyPair.publicKey })
           if (!isValid) {
+            logger.debug('[QQBot-Plugin:Webhook-Server] 签名验证失败', isValid)
             return end()
           }
         }
@@ -106,8 +112,8 @@ export const runServer = async (onMessage, fastify = null) => {
     }
   })
 
-  fastify.addHook('onError', (error, req, reply) => {
-    logger.error('[QQBot-Plugin:Webhook-Server]', error)
+  fastify.addHook('onError', (request, reply, error, done) => {
+    logger.error('[QQBot-Plugin:Webhook-Server-Error]', error)
   })
 
   fastify.listen({ port: 8443, host: '0.0.0.0' }, (err, address) => {
