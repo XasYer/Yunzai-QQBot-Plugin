@@ -24,6 +24,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   simplifiedSdkLog: false,
   markdownImgScale: 1.0,
   sep: '',
+  bus: {},
   dauDB: 'redis',
   // dau: {
   //   enable: true,
