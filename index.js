@@ -16,14 +16,9 @@ import {
   splitMarkDownTemplate,
   getMustacheTemplating
 } from './Model/index.js'
-
-const QQBot = await (async () => {
-  try {
-    return (await import('qq-official-bot')).Bot
-  } catch (error) {
-    return (await import('qq-group-bot')).Bot
-  }
-})()
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+import { Bot as QQBot } from 'qq-official-bot'
 
 const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
@@ -1352,6 +1347,7 @@ const adapter = new class QQBotAdapter {
     const id = token[0]
     const opts = {
       ...config.bot,
+      real_self_id: id,
       appid: token[1],
       token: token[2],
       secret: token[3],
@@ -1370,10 +1366,42 @@ const adapter = new class QQBotAdapter {
 
     if (Number(token[5])) opts.intents.push('GUILD_MESSAGES')
     else opts.intents.push('PUBLIC_GUILD_MESSAGES')
-
+    let sdk = new QQBot(opts)
+    if (config.bus?.[id]){
+      let keys = Object.keys(config.bus)
+      const { sandbox, appid } = opts
+			const base = sandbox
+				? `https://${config.bus[id]}/proxy?url=https://sandbox.api.sgroup.qq.com`
+				: `https://${config.bus[id]}/proxy?url=https://api.sgroup.qq.com`
+      sdk.request.defaults.baseURL = base
+      const { SessionManager } = require("qq-official-bot/lib/sessionManager.js")
+      Object.assign(SessionManager.prototype, {
+        getWsUrl: async function () {
+          return new Promise((resolve) => {
+            this.bot.request
+              .get('/gateway/bot', {
+                headers: {
+                  Accept: '*/*',
+                  'Accept-Encoding': 'utf-8',
+                  'Accept-Language': 'zh-CN,zh;q=0.8',
+                  Connection: 'keep-alive',
+                  'User-Agent': 'v1',
+                  Authorization: '',
+                },
+              })
+              .then((res) => {
+                if (!res.data) throw new Error('获取ws连接信息异常')
+                this.wsUrl = keys.some(i=>i == this.bot.config.real_self_id)? `wss://${config.bus[id]}/ws?url=${res.data.url}&appid=${appid}`:res.data.url
+                logger.info(`WebSocket URL 已更新: ${this.wsUrl}`)
+                resolve(this.wsUrl)
+              })
+          })
+        },
+      })
+    }
     Bot[id] = {
       adapter: this,
-      sdk: new QQBot(opts),
+      sdk,
       login () {
         return new Promise(resolve => {
           this.sdk.sessionManager.once('READY', resolve)
