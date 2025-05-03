@@ -89,6 +89,15 @@ TRSS-Yunzai QQBot 适配器 插件
       - 优点: 大部分使用redis存储,不会缓存
       - 缺点: 没有缓存所以有些没统计
 16. 已适配YePanel,提供dau统计和设置功能
+17. `config/QQBot.yaml`中`bus`是否使用ws中转站
+- 使用ws中转站可以降低成本,只需要一台低性能云服务器即可通过IP白名单验证,后端可使用本地服务器
+- 填写格式:
+```
+  bus: {
+    BotQQ: "example.com"
+  }
+```
+- 后端搭建[[QQBotWs](https://github.com/Admilkk/QQBotWs)]
 
 ## 安装教程
 
