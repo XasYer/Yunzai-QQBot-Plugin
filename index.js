@@ -17,8 +17,8 @@ import {
   getMustacheTemplating
 } from './Model/index.js'
 import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
 import { Bot as QQBot } from 'qq-official-bot'
+const require = createRequire(import.meta.url)
 
 const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))
@@ -123,7 +123,22 @@ const adapter = new class QQBotAdapter {
 
     image.width = Math.floor(image.width * config.markdownImgScale)
     image.height = Math.floor(image.height * config.markdownImgScale)
-
+    if (Handler.has('QQBot.makeMarkdownImage')) {
+      const res = await Handler.call(
+        'QQBot.makeMarkdownImage',
+        data,
+        {
+          image,
+          buffer,
+          file,
+          summary,
+          config
+        }
+      )
+      if (res) {
+        typeof res == 'object' ? Object.assign(image, res) : image.url = res
+      }
+    }
     return {
       des: `![${summary} #${image.width || 0}px #${image.height || 0}px]`,
       url: `(${image.url})`
@@ -1367,14 +1382,14 @@ const adapter = new class QQBotAdapter {
     if (Number(token[5])) opts.intents.push('GUILD_MESSAGES')
     else opts.intents.push('PUBLIC_GUILD_MESSAGES')
     let sdk = new QQBot(opts)
-    if (config.bus?.[id]){
+    if (config.bus?.[id]) {
       let keys = Object.keys(config.bus)
       const { sandbox, appid } = opts
-			const base = sandbox
-				? `https://${config.bus[id]}/proxy?url=https://sandbox.api.sgroup.qq.com`
-				: `https://${config.bus[id]}/proxy?url=https://api.sgroup.qq.com`
+      const base = sandbox
+        ? `https://${config.bus[id]}/proxy?url=https://sandbox.api.sgroup.qq.com`
+        : `https://${config.bus[id]}/proxy?url=https://api.sgroup.qq.com`
       sdk.request.defaults.baseURL = base
-      const { SessionManager } = require("qq-official-bot/lib/sessionManager.js")
+      const { SessionManager } = require('qq-official-bot/lib/sessionManager.js')
       Object.assign(SessionManager.prototype, {
         getWsUrl: async function () {
           return new Promise((resolve) => {
@@ -1386,17 +1401,17 @@ const adapter = new class QQBotAdapter {
                   'Accept-Language': 'zh-CN,zh;q=0.8',
                   Connection: 'keep-alive',
                   'User-Agent': 'v1',
-                  Authorization: '',
-                },
+                  Authorization: ''
+                }
               })
               .then((res) => {
                 if (!res.data) throw new Error('获取ws连接信息异常')
-                this.wsUrl = keys.some(i=>i == this.bot.config.real_self_id)? `wss://${config.bus[id]}/ws?url=${res.data.url}&appid=${appid}`:res.data.url
+                this.wsUrl = keys.some(i => i == this.bot.config.real_self_id) ? `wss://${config.bus[id]}/ws?url=${res.data.url}&appid=${appid}` : res.data.url
                 logger.info(`WebSocket URL 已更新: ${this.wsUrl}`)
                 resolve(this.wsUrl)
               })
           })
-        },
+        }
       })
     }
     Bot[id] = {
