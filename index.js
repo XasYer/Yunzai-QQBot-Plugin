@@ -107,9 +107,8 @@ const adapter = new class QQBotAdapter {
 
   async makeMarkdownImage (data, file, summary = '图片') {
     const buffer = await Bot.Buffer(file)
-    const image =
-      await this.makeBotImage(buffer) ||
-      { url: await Bot.fileToUrl(file) }
+    let image = await this.makeBotImage(buffer)
+    if (!image) image = { url: TmplPkg && TmplPkg?.ImgHost ? await TmplPkg.ImgHost(file) : await Bot.fileToUrl(file) }
 
     if (!image.width || !image.height) {
       try {
@@ -235,7 +234,8 @@ const adapter = new class QQBotAdapter {
     let reply
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
-      if (typeof i == 'object') { i = { ...i } } else { i = { type: 'text', text: i } }
+      if (typeof i == 'object') i = { ...i }
+      else i = { type: 'text', text: i }
 
       switch (i.type) {
         case 'record':
@@ -253,7 +253,8 @@ const adapter = new class QQBotAdapter {
           // break
           return []
         case 'at':
-          if (i.qq == 'all') { content += '@everyone' } else { content += `<@${i.qq?.replace?.(`${data.self_id}${this.sep}`, '')}>` }
+          if (i.qq == 'all') content += '@everyone'
+          else content += `<@${i.qq?.replace?.(`${data.self_id}${this.sep}`, '')}>`
           break
         case 'text':
           content += await this.makeRawMarkdownText(data, i.text, button)
@@ -277,7 +278,13 @@ const adapter = new class QQBotAdapter {
           }
           continue
         case 'node':
-          for (const { message } of i.data) { messages.push(...(await this.makeRawMarkdownMsg(data, message))) }
+          if (TmplPkg && TmplPkg?.nodeMsg) {
+            messages.push(...(await this.makeRawMarkdownMsg(data, TmplPkg.nodeMsg(i.data))))
+          } else {
+            for (const { message } of i.data) {
+              messages.push(...(await this.makeRawMarkdownMsg(data, message)))
+            }
+          }
           continue
         case 'raw':
           messages.push(Array.isArray(i.data) ? i.data : [i.data])
@@ -287,7 +294,12 @@ const adapter = new class QQBotAdapter {
       }
     }
 
-    if (content) { messages.unshift([{ type: 'markdown', content }]) }
+    if (config.mdSuffix?.[data.self_id]) {
+      for (const suf of config.mdSuffix[data.self_id]) {
+        content += await this.makeRawMarkdownText(data, suf.values[0], button)
+      }
+    }
+    if (content) messages.unshift([{ type: 'markdown', content }])
 
     if (button.length) {
       for (const i of messages) {
