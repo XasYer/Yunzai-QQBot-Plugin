@@ -95,6 +95,7 @@ const adapter = new class QQBotAdapter {
     if (config.toBotUpload) {
       for (const i of Bot.uin) {
         if (!Bot[i].uploadImage) continue
+        if (Bot[i].adapter.name !== 'QQBot') continue
         try {
           const image = await Bot[i].uploadImage(file)
           if (image.url) return image
@@ -107,8 +108,7 @@ const adapter = new class QQBotAdapter {
 
   async makeMarkdownImage (data, file, summary = '图片') {
     const buffer = await Bot.Buffer(file)
-    let image = await this.makeBotImage(buffer)
-    if (!image) image = { url: TmplPkg && TmplPkg?.ImgHost ? await TmplPkg.ImgHost(file) : await Bot.fileToUrl(file) }
+    const image = await this.makeBotImage(buffer) || { url: await Bot.fileToUrl(file) }
 
     if (!image.width || !image.height) {
       try {
