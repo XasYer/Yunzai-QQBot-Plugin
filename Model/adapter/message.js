@@ -63,7 +63,7 @@ export default class Message extends base {
             break
           } else continue
         case 'text':
-          if (md) content += Tools.call('text', this, data, i.data.text, button, md === 2)
+          if (md) content += await Tools.call('text', this, data, i.data.text, button, md === 2)
           break
         case 'node':
           if (Handler.has('ws.tool.toImg') && this.cfg.toImg) {
