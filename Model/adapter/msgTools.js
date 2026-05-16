@@ -8,14 +8,16 @@ import { encode as encodeSilk } from 'silk-wasm'
 import { Handler, splitMarkDownTemplate, getMustacheTemplating } from '../index.js'
 
 export default {
-  async qr (url) {
-    const qrl = await QRCode.toDataURL(url)
-
-    console.log('🚀 -------------🚀')
-    console.log('🚀 ~ qrl:', qrl)
-    console.log('🚀 -------------🚀')
-
-    return qrl.replace('data:image/png;base64,', 'base64://')
+  async qr (url, data) {
+    let qrl
+    if (Handler.has('QQBot.QRcode')) {
+      const res = await Handler.call('QQBot.QRcode', data, url)
+      if (res) qrl = res
+    } else {
+      qrl = await QRCode.toDataURL(url)
+      qrl = qrl.replace('data:image/png;base64,', '')
+    }
+    return 'base64://' + qrl
   },
   async record (file, upload) {
     if (upload) {
@@ -168,7 +170,7 @@ export default {
       for (const url of match) {
         button.push(...this._callInternal('button', data, [[{ text: url, link: url }]]))
         if (raw) {
-          const qrl = await this._callInternal('qr', url)
+          const qrl = await this._callInternal('qr', url, data)
           const img = await this._callInternal('img', data, qrl, '二维码', this._exThis.cfg)
           text = text.replace(url, `${img.des}${img.url}`)
         } else text = text.replace(url, '[链接(请点击按钮查看)]')

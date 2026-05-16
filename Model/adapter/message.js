@@ -136,7 +136,7 @@ export default class Message extends base {
           const match = i.text.match(this.toQRCodeRegExp)
           if (match) {
             for (const url of match) {
-              const msg = segment.image(await Bot.fileToUrl(await Tools.call('qr', '', url)))
+              const msg = segment.image(await Bot.fileToUrl(await Tools.call('qr', '', url, data)))
               checkST()
               tempMsg.push(msg)
               i.text = i.text.replace(url, '[链接(请扫码查看)]')
