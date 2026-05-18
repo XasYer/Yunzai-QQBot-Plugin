@@ -149,10 +149,11 @@ export default class Message extends base {
     }
 
     if (tempMsg.length) messages.push(tempMsg)
-    else if (md === 1) {
-      if (content) template.push(content)
+    else if (content) {
+      // 正文
+      if (md === 1) {
+        template.push(content)
 
-      if (template.length) {
         if (template.length > length) {
           const templates = _(template).chunk(length).map(v => Tools.call('template', '', data, v, markdown_template, this.cfg)).value()
           messages.push(...templates)
@@ -161,37 +162,37 @@ export default class Message extends base {
           if (tmp.length > 1) messages.push(...tmp.map(i => ([i])))
           else messages.push(tmp)
         }
-
-        if (button.length < 5 && this.cfg.btnSuffix[data.self_id]) {
-          let { position, values } = this.cfg.btnSuffix[data.self_id]
-          position = +position - 1
-
-          if (position > button.length) position = button.length
-
-          const btn = values.filter(i => {
-            if (i.show) {
-              if (i.show.type === 'random' && i.show.data <= _.random(1, 100)) return false
-            }
-            return true
-          })
-          button.splice(position, 0, ...Tools.call('button', this, data, [btn]))
+      } else {
+        if (this.cfg.mdSuffix?.[data.self_id]) {
+          for (const suf of this.cfg.mdSuffix[data.self_id]) {
+            content += suf.values[0]
+          }
         }
+        if (content) messages.unshift([{ type: 'markdown', data: { content } }])
       }
-    } else {
-      if (this.cfg.mdSuffix?.[data.self_id]) {
-        for (const suf of this.cfg.mdSuffix[data.self_id]) {
-          content += suf.values[0]
-        }
-      }
-      if (content) messages.unshift([{ type: 'markdown', data: { content } }])
-    }
 
-    if (button.length && md) {
+      // 按钮
+      if (button.length < 5 && this.cfg.btnSuffix[data.self_id]) {
+        let { position, values } = this.cfg.btnSuffix[data.self_id]
+        position = +position - 1
+
+        if (position > button.length) position = button.length
+
+        const btn = values.filter(i => {
+          if (i.show) {
+            if (i.show.type === 'random' && i.show.data <= _.random(1, 100)) return false
+          }
+          return true
+        })
+        button.splice(position, 0, ...Tools.call('button', this, data, [btn]))
+      }
+
       for (const i of messages) {
-        if (i[0].type == 'markdown') i.push(...button.splice(0, 5))
         if (!button.length) break
+        if (i[0].type == 'markdown') i.push(...button.splice(0, 5))
       }
     }
+
     while (button.length) {
       let btnMsg
       if (!md) btnMsg = [{ type: 'keyboard', data: { content: { rows: button.splice(0, 5) } } }]
