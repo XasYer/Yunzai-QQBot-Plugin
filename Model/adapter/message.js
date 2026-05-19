@@ -108,7 +108,7 @@ export default class Message extends base {
           if (md) break
           else continue
         case 'reply':
-          if (i.id.startsWith('event_')) reply = { type: 'reply', event_id: i.id.replace(/^event_/, '') }
+          if (i.data.id.startsWith('event_')) reply = { type: 'reply', event_id: i.data.id.replace(/^event_/, '') }
           else reply = i
           continue
         case 'raw':
