@@ -39,7 +39,6 @@ export default class base {
     return this.entry.userCache
   }
 
-
   /**
    * sdk调用
    * @param {'private'|'group'|'direct'|'guild'} type 消息来源

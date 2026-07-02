@@ -139,6 +139,7 @@ export default class QQBotAdapter {
       ...data.bot.gl.get(data.group_id),
       group_id: data.group_id
     })
+
     let gml = data.bot.gml.get(data.group_id)
     if (!gml) {
       gml = new Map()
@@ -174,7 +175,7 @@ export default class QQBotAdapter {
       mode: ReceiverMode.WEBSOCKET
     }
 
-    if (Number(token[4])) opts.intents.push('GROUP_AND_C2C_EVENT')
+    if (Number(token[4])) opts.intents.push('GROUP_AND_C2C_EVENT', 'GROUP_MEMBER')
     if (Number(token[5])) opts.intents.push('GUILD_MESSAGES')
     else opts.intents.push('PUBLIC_GUILD_MESSAGES')
 

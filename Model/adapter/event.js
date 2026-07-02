@@ -18,27 +18,36 @@ export default class Event extends base {
       message_type: event.message_type,
       sub_type: event.sub_type,
       message_id: event.message_id,
-      get user_id () { return this.sender?.user_id || event.sender.user_id },
+      get user_id () { return this.sender?.user_id || event.user_id },
       message: [],
       raw_message: event.raw_message
     }
     // @消息处理
+    if (event.mentions) {
+      data.mentions = {}
+
+      event.mentions.forEach(at => {
+        const qq = `${data.message_type === 'group' ? data.self_id + this.sep : 'qg_'}${at.id}`
+
+        data.message.push({ type: 'at', qq })
+        data.mentions[qq] = at
+      })
+    }
     if (event.message) {
-      for (let i of event.message) {
-        i = { ...i.data, type: i.type }
-        if (i.type === 'at') {
-          i.qq = data.message_type === 'group' ? data.self_id + this.sep : 'qg_'
-          i.qq += i.user_id
-        }
-        data.message.push(i)
-      }
+      event.message.forEach(i => {
+        data.message.push({ ...i.data, type: i.type })
+      })
     }
 
     if (['private', 'direct', 'group', 'guild'].includes(data.message_type)) {
       let type = data.message_type
 
       const btype = this.baseType[type]
-      data.sender = { user_id: `${data.self_id}${this.sep}${event.sender.user_id}` }
+      data.sender = {
+        ...event.author,
+        user_id: `${data.self_id}${this.sep}${event.user_id}`,
+        nickname: event.author.username
+      }
 
       // 自定义消息过滤前台日志防刷屏(自欺欺人大法)
       const filterLog = this.cfg.filterLog?.[data.self_id] || []
@@ -70,7 +79,7 @@ export default class Event extends base {
     Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
   }
 
-  Notice (id, event) {
+  async Notice (id, event) {
     const data = {
       raw: event,
       bot: Bot[id],
@@ -101,9 +110,11 @@ export default class Event extends base {
         return
       case 'decrease':
         Bot[data.self_id].dau.setDau('group_decrease', data)
-      case 'update':
       case 'member.increase':
       case 'member.decrease':
+        data.sub_type = data.sub_type.split('.').pop()
+        Bot.em(`${data.post_type}.${data.notice_type}.${data.sub_type}`, data)
+      case 'update':
       case 'member.update':
       case 'add':
       case 'remove':

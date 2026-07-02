@@ -3,7 +3,7 @@
   "type": "module",
   "author": "TimeRainStarSky",
   "dependencies": {
-    "qq-official-bot": "^1.2.0",
+    "qq-official-bot": "^1.2.3",
     "silk-wasm": "^3.3.3"
   },
   "peerDependencies": {

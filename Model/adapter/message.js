@@ -313,7 +313,7 @@ export default class Message extends base {
     if (['private', 'group'].includes(type)) hide = false
 
     hide = hide ? '并隐藏' : ''
-    const btype = this.BaseType[type]
+    const btype = this.baseType[type]
 
     if (!Array.isArray(message_id)) message_id = [message_id]
 
