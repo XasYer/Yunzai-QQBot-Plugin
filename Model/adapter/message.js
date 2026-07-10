@@ -263,7 +263,11 @@ export default class Message extends base {
           Bot[selfId].dau.setDau('send_msg', data)
         } catch (err) {
           // Bot.makeLog('error', ['发送消息错误', i, err], selfId)
-          logger.error(selfId, '发送消息错误', i, err)
+          // 主动消息无权限隐藏stack信息
+          let msg = err
+          if (err.message.includes('failed with code(40034105): 主动消息失败, 无权限')) msg = err.message
+
+          logger.error(selfId, '发送消息错误', i, msg)
           rets.error.push(err)
           return false
         }

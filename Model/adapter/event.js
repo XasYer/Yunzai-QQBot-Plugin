@@ -94,7 +94,7 @@ export default class Event extends base {
 
     switch (data.sub_type) {
       case 'action':
-        return this.Callback(id, event)
+        return this.CallBack(id, event)
       case 'increase':
         Bot[data.self_id].dau.setDau('group_increase', data)
         if (event.notice_type === 'group') {
