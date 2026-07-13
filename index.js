@@ -1,10 +1,5 @@
 import _ from 'lodash'
-import {
-  importJS,
-  config,
-  configSave,
-  refConfig
-} from './Model/index.js'
+import { importJS, config, configSave, refConfig } from './Model/index.js'
 import QQBotAdapter from './Model/adapter/index.js'
 
 const startTime = new Date()
@@ -19,8 +14,32 @@ const setMap = {
   转换: 'toQQUin',
   转图片: 'toImg',
   调用统计: 'callStats',
-  用户统计: 'userStats'
+  用户统计: 'userStats',
+  官Bot过滤: 'filterBot'
 }
+
+let ruleMap = {
+  help: '(帮助|help)',
+  List: '账号',
+  Token: '设置[0-9]+:[0-9]+:.+:.+:[01]:[01]',
+  Markdown: 'm(ark)?d(own)?[0-9]+:',
+  Setting: `设置(${Object.keys(setMap).join('|')})\\s*(开启|关闭)`,
+  DAUStat: 'dau',
+  callStat: '调用统计',
+  userStat: '用户统计',
+  refConfig: '刷新co?n?fi?g',
+  filterLog: '(添加|删除)过滤日志',
+  oneKeySendGroupMsg: '一键群发'
+}
+
+ruleMap = _.reduce(ruleMap, (acc, v, k) => {
+  acc.push({
+    reg: new RegExp(`^#q+bot${v}$`, 'i'),
+    fnc: k,
+    permission: config.permission
+  })
+  return acc
+}, [])
 
 export class QQBotConfig extends plugin {
   constructor () {
@@ -28,63 +47,7 @@ export class QQBotConfig extends plugin {
       name: 'QQBotAdapter',
       dsc: 'QQBot 适配器设置',
       event: 'message',
-      rule: [
-        {
-          reg: /^#q+bot(帮助|help)$/i,
-          fnc: 'help',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+bot账号$/i,
-          fnc: 'List',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+bot设置[0-9]+:[0-9]+:.+:.+:[01]:[01]$/i,
-          fnc: 'Token',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+botm(ark)?d(own)?[0-9]+:/i,
-          fnc: 'Markdown',
-          permission: config.permission
-        },
-        {
-          reg: new RegExp(`^#q+bot设置(${Object.keys(setMap).join('|')})\\s*(开启|关闭)$`, 'i'),
-          fnc: 'Setting',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+botdau/i,
-          fnc: 'DAUStat',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+bot调用统计$/i,
-          fnc: 'callStat',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+bot用户统计$/i,
-          fnc: 'userStat',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+bot刷新co?n?fi?g$/i,
-          fnc: 'refConfig',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+bot(添加|删除)过滤日志/i,
-          fnc: 'filterLog',
-          permission: config.permission
-        },
-        {
-          reg: /^#q+bot一键群发$/i,
-          fnc: 'oneKeySendGroupMsg',
-          permission: config.permission
-        }
-      ]
+      rule: ruleMap
     })
   }
 
@@ -117,7 +80,7 @@ export class QQBotConfig extends plugin {
   async Token () {
     const token = this.e.msg.replace(/^#q+bot设置/i, '').trim()
     if (config.token.includes(token)) {
-      config.token = config.token.filter(item => item != token)
+      _.pull(config.token, token)
       this.reply(`账号已删除，重启后生效，共${config.token.length}个账号`, true)
     } else {
       if (await adapter.connect(token)) {
@@ -143,9 +106,9 @@ export class QQBotConfig extends plugin {
   async Setting () {
     const reg = /^#q+bot设置(.+)\s*(开启|关闭)$/i
     const regRet = reg.exec(this.e.msg)
-    const state = regRet[2] == '开启'
+    const state = regRet[2] === '开启'
     config[setMap[regRet[1]]] = state
-    this.reply('设置成功,已' + (state ? '开启' : '关闭'), true)
+    this.reply('设置成功,已' + regRet[2], true)
     await configSave()
   }
 
@@ -170,9 +133,7 @@ export class QQBotConfig extends plugin {
     if (!config.userStats) return false
     const dau = this.e.bot.dau
     if (!dau || !dau.dauDB) return false
-    if (dau.dauDB === 'redis') {
-      return this.reply('用户统计只适配了level,,,', true)
-    }
+    if (dau.dauDB === 'redis') return this.reply('用户统计只适配了level,,,', true)
     const msg = await dau.getUserStatsMsg(this.e)
     if (msg.length) this.reply(msg, true)
   }

@@ -22,18 +22,21 @@ export default class Event extends base {
       message: [],
       raw_message: event.raw_message
     }
+    // 过滤其他官bot消息
+    if (this.cfg.filterBot && event.author.bot) return
     // @消息处理
     if (event.mentions) {
       data.mentions = {}
 
-      event.mentions.forEach(at => {
+      for (const at of event.mentions) {
+        // 过滤自身/官bot
+        if ((this.cfg.filterBot && at.bot) || at.is_you) continue
         const qq = `${data.message_type === 'group' ? data.self_id + this.sep : 'qg_'}${at.id}`
-
         data.message.push({ type: 'at', qq })
         data.mentions[qq] = at
-      })
+      }
     }
-    if (event.message) {
+     (event.message) {
       event.message.forEach(i => {
         data.message.push({ ...i.data, type: i.type })
       })

@@ -26,6 +26,7 @@ let { config, configSave } = await makeConfig('QQBot', {
   sep: '',
   bus: {},
   dauDB: 'redis',
+  filterBot: false, // 不响应其他官bot
   // dau: {
   //   enable: true,
   //   user_count: true,  // 上行消息人数
