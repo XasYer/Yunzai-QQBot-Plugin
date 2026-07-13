@@ -36,7 +36,7 @@ export default class Event extends base {
         data.mentions[qq] = at
       }
     }
-     (event.message) {
+    if (event.message) {
       event.message.forEach(i => {
         data.message.push({ ...i.data, type: i.type })
       })
