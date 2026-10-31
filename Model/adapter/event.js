@@ -24,6 +24,8 @@ export default class Event extends base {
     }
     // 过滤其他官bot消息
     if (this.cfg.filterBot && event.author.bot) return
+
+    const type = data.message_type
     // @消息处理
     if (event.mentions) {
       data.mentions = {}
@@ -31,7 +33,7 @@ export default class Event extends base {
       for (const at of event.mentions) {
         // 过滤自身/官bot
         if ((this.cfg.filterBot && at.bot) || at.is_you) continue
-        const qq = `${data.message_type === 'group' ? data.self_id + this.sep : 'qg_'}${at.id}`
+        const qq = `${type === 'group' ? data.self_id + this.sep : 'qg_'}${at.id}`
         data.message.push({ type: 'at', qq })
         data.mentions[qq] = at
       }
@@ -42,9 +44,7 @@ export default class Event extends base {
       })
     }
 
-    if (['private', 'direct', 'group', 'guild'].includes(data.message_type)) {
-      const type = data.message_type
-
+    if (['private', 'direct', 'group', 'guild'].includes(type)) {
       const btype = this.baseType[type]
       data.sender = {
         ...event.author,
@@ -56,21 +56,20 @@ export default class Event extends base {
       const filterLog = this.cfg.filterLog?.[data.self_id] || []
       const logStat = filterLog.includes(_.trim(data.raw_message)) ? 'debug' : 'info'
 
-      let logPrefix = ''
-      await this[`${type}RM`](data, event, btype, logPrefix)
-      Bot.makeLog(logStat, `${logPrefix} ${data.raw_message}`, data.self_id)
+      const logPrefix = await this[`${type}RM`](data, event, btype, '消息')
+      Bot.makeLog(logStat, `${btype.name}消息：${logPrefix} ${data.raw_message}`, data.self_id)
 
       data.reply = msg => this.entry.Message.sendMsg(type, data, msg, { id: data.message_id })
 
       if (['private', 'direct', 'guild'].includes(type)) await this.entry.setFriendMap(data)
       if (['group', 'guild'].includes(type)) await this.entry.setGroupMap(data)
       if (type === 'guild' && !data.message.length) data.message.push({ type: 'text', text: '' })
-    } else if (data.message_type.includes('audi')) {
+    } else if (type.includes('audi')) {
       let status = data.sub_type
       const logStat = status === 'pass' ? 'debug' : 'warn'
       status = status === 'pass' ? '通过' : '拒绝'
 
-      Bot.makeLog(logStat, `消息审核${status} ${data.post_type}.${data.message_type}.${data.sub_type}`, data.self_id)
+      Bot.makeLog(logStat, `消息审核${status} ${data.post_type}.${type}.${data.sub_type}`, data.self_id)
       return
     } else {
       Bot.makeLog('warn', ['未知消息', event], id)
@@ -79,7 +78,7 @@ export default class Event extends base {
 
     data.bot.stat.recv_msg_cnt++
     Bot[data.self_id].dau.setDau('receive_msg', data)
-    Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
+    Bot.em(`${data.post_type}.${type}.${data.sub_type}`, data)
   }
 
   async Notice (id, event) {
@@ -143,6 +142,7 @@ export default class Event extends base {
         Bot.makeLog('debug', ['回复按钮点击事件错误', err], data.self_id)
       }
     }
+    event.user_id = event.operator_id
 
     const data = {
       raw: event,
@@ -167,9 +167,8 @@ export default class Event extends base {
 
       if (callback.message_id.length) {
         for (const id of callback.message_id) {
-          data.message.push({ type: 'reply', id })
+          addMsg('reply', id)
         }
-        data.raw_message += `[回复：${callback.message_id}]`
       }
       addMsg('text', callback.message)
     } else {
@@ -177,6 +176,17 @@ export default class Event extends base {
       if (btn?.button_data) addMsg('text', btn.button_data)
       else event.reply(1)
     }
+    event.reply(0)
+
+    const type = data.message_type
+    if (['private', 'direct', 'group', 'guild'].includes(type)) {
+      const btype = this.baseType[type]
+      const logPrefix = await this[`${type}RM`](data, event, btype)
+      Bot.makeLog('info', `${btype.name}按钮：${logPrefix} ${data.raw_message}`, data.self_id)
+      data.reply = msg => this.entry.Message.sendMsg(type, data, msg, { id: data.message_id })
+    } else Bot.makeLog('warn', ['未知按钮', event], data.self_id)
+
+    Bot.em(`${data.post_type}.${data.message_type}.${data.sub_type}`, data)
 
     function addMsg (type, msg) {
       const obj = { type }
@@ -184,64 +194,62 @@ export default class Event extends base {
       else if (type === 'reply') obj.id = msg
 
       data.message.push(obj)
-      data.raw_message += type === 'text' ? msg : `[回复：${msg}]`
+      data.raw_message += type === 'text' ? msg : ''
     }
   }
 
   async receive (data, event, type) {
   }
 
-  privateRM (data, event, btype, logPrefix) {
-    data = { ...data, user_id: event.sender.user_id }
-    logPrefix = `${btype.name}消息：[${data[btype.id]}]`
+  privateRM (data, event, btype) {
+    return `[${event[btype.id]}]`
   }
 
-  async groupRM (data, event, btype, logPrefix) {
+  async groupRM (data, event, btype) {
     data.group_id = `${data.self_id}${this.sep}${event.group_id}`
     await this.#wsFindUser(data)
 
-    data = { ...data, group_id: event.group_id }
-    logPrefix = `${btype.name}消息：[${data[btype.id]}, ${data.user_id}]`
+    return `[${event[btype.id]}, ${data.sender.nickname || ''}(${event.user_id})]`
   }
 
-  directRM (data, event, btype, logPrefix) {
-    data.sender = {
-      ...data.bot.fl.get(`qg_${event.sender.user_id}`),
-      ...event.sender,
-      user_id: `qg_${event.sender.user_id}`,
-      nickname: event.sender.user_name,
-      avatar: event.author.avatar,
-      guild_id: event.guild_id,
-      channel_id: event.channel_id,
-      src_guild_id: event.src_guild_id
-    }
-
-    data = {
-      ...data,
+  directRM (data, event, btype) {
+    Object.assign(data, {
       user_id: event.user_id,
       guild_id: event.guild_id,
-      channel_id: event.channel_id
-    }
-    logPrefix = `${btype.name}消息：[${data.sender.nickname}(${data.user_id})]`
+      channel_id: event.channel_id,
+      sender: {
+        ...data.bot.fl.get(`qg_${event.sender.user_id}`),
+        ...event.sender,
+        user_id: `qg_${event.sender.user_id}`,
+        nickname: event.sender.user_name,
+        avatar: event.author.avatar,
+        guild_id: event.guild_id,
+        channel_id: event.channel_id,
+        src_guild_id: event.src_guild_id
+      }
+    })
+    return `[${data.sender.nickname}(${data.user_id})]`
   }
 
-  async guildRM (data, event, btype, logPrefix) {
-    data.message_type = 'group'
-    data.sender = {
-      ...data.bot.fl.get(`qg_${event.sender.user_id}`),
-      ...event.sender,
-      user_id: `qg_${event.sender.user_id}`,
-      nickname: event.sender.user_name,
-      card: event.member.nick,
-      avatar: event.author.avatar,
-      src_guild_id: event.guild_id,
-      src_channel_id: event.channel_id,
-      group_id: `qg_${event.guild_id}-${event.channel_id}`
-    }
+  async guildRM (data, event, btype, act) {
+    Object.assign(data, {
+      message_type: 'group',
+      guild_id: event.guild_id,
+      channel_id: event.channel_id,
+      sender: {
+        ...data.bot.fl.get(`qg_${event.sender.user_id}`),
+        ...event.sender,
+        user_id: `qg_${event.sender.user_id}`,
+        nickname: event.sender.user_name,
+        card: event.member.nick,
+        avatar: event.author.avatar,
+        src_guild_id: event.guild_id,
+        src_channel_id: event.channel_id,
+        group_id: `qg_${event.guild_id}-${event.channel_id}`
+      }
+    })
     await this.#wsFindUser(data)
-
-    data = { ...data, guild_id: event.guild_id, channel_id: event.channel_id }
-    logPrefix = `${btype.name}消息：[${data.group_id}, ${data.sender.nickname}(${data.user_id})]`
+    return `[${data.group_id}, ${data.sender.nickname}(${data.user_id})]`
   }
 
   async #wsFindUser (data) {

@@ -334,8 +334,8 @@ export default class Message extends base {
 
   #TmplRemake (data, msg) {
     let fncName = /\[.*?\((\S+)\)\]/.exec(data.logFnc)
-    console.log(fncName)
-    const Btn = TmplPkg.Button[fncName]
+    console.assert(fncName?.[1], fncName)
+    const Btn = TmplPkg.Button[fncName?.[1]]
 
     if (msg.type === 'node') data.wsids = { toImg: this.cfg.toImg }
 

@@ -240,13 +240,10 @@ export default class QQBotAdapter {
     for (const i of ['trace', 'debug', 'info', 'mark', 'warn', 'error', 'fatal']) {
       Bot[id].sdk.logger[i] = (...args) => {
         if (config.simplifiedSdkLog) {
-          if (args?.[0]?.match?.(/^send to/)) {
-            args[0] = args[0].replace(/<(.+?)(,.*?)>/g, (v, k1, k2) => {
-              return `<${k1}>`
-            })
-          } else if (args?.[0]?.match?.(/^recv from/)) {
-            return
-          }
+          const sdkLog = args?.[0]
+          if (sdkLog?.match?.(/^send to/)) {
+            args[0] = sdkLog.replace(/<(.+?)(,.*?)>/g, (v, k1) => `<${k1}>`)
+          } else if (sdkLog?.match?.(/^recv from/)) return
         }
         Bot.makeLog(i, args, id)
       }
