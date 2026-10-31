@@ -1,6 +1,6 @@
 import _ from 'lodash'
-import { importJS, config, configSave, refConfig } from './Model/index.js'
 import QQBotAdapter from './Model/adapter/index.js'
+import { config, configSave, importJS, refConfig } from './Model/index.js'
 
 const startTime = new Date()
 logger.info(logger.yellow('- 正在加载 QQBot 适配器插件'))

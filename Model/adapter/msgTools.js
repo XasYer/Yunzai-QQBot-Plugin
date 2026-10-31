@@ -1,9 +1,9 @@
-import _ from 'lodash'
+import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
-import QRCode from 'qrcode'
 import { join } from 'node:path'
 import imageSize from 'image-size'
-import { randomUUID } from 'node:crypto'
+import _ from 'lodash'
+import QRCode from 'qrcode'
 import { encode as encodeSilk } from 'silk-wasm'
 import { Handler, splitMarkDownTemplate, getMustacheTemplating } from '../index.js'
 
@@ -52,7 +52,7 @@ export default {
   },
   async img (data, file, summary = '图片', config) {
     const buffer = await Bot.Buffer(file)
-    let image = await uploadImg(buffer, config.toBotUpload) || { url: await Bot.fileToUrl(file) }
+    const image = await uploadImg(buffer, config.toBotUpload) || { url: await Bot.fileToUrl(file) }
 
     if (!image.width || !image.height) {
       try {

@@ -232,18 +232,14 @@ export default class Message extends base {
       }
     } else if (type === 'group') {
       if (Handler.has('QQBot.group.sendMsg')) {
-        const res = await Handler.call(
-          'QQBot.group.sendMsg',
-          data,
-          {
-            self_id: selfId,
-            group_id: `${selfId}${this.sep}${data.group_id}`,
-            raw_group_id: data.group_id,
-            user_id: data.user_id,
-            msg,
-            event
-          }
-        )
+        const res = await Handler.call('QQBot.group.sendMsg', data, {
+          self_id: selfId,
+          group_id: `${selfId}${this.sep}${data.group_id}`,
+          raw_group_id: data.group_id,
+          user_id: data.user_id,
+          msg,
+          event
+        })
         if (res !== false) return res
       }
     }
@@ -252,10 +248,12 @@ export default class Message extends base {
     let msgs
 
     const doSend = async () => {
+      const msgId = data.message_id
+      const source = msgId ? { id: msgId } : {}
       for (const i of msgs) {
         try {
           Bot.makeLog('debug', ['发送消息', i], selfId)
-          const ret = await this.sdkCaller(type, 'send', data, i)
+          const ret = await this.sdkCaller(type, 'send', data, i, source)
           Bot.makeLog('debug', ['发送消息返回', ret], selfId)
 
           rets.data.push(ret)

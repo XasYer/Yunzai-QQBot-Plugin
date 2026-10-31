@@ -1,7 +1,7 @@
-import { Dau, config } from '../index.js'
-import { Bot as QQBot, Session, ReceiverMode } from 'qq-official-bot'
-import Message from './message.js'
+import { Bot as QQBot, ReceiverMode, Session } from 'qq-official-bot'
+import { config, Dau } from '../index.js'
 import Event from './event.js'
+import Message from './message.js'
 
 const userIdCache = {}
 
@@ -58,7 +58,8 @@ export default class QQBotAdapter {
   }
 
   pickGroup (id, group_id) {
-    if (group_id.startsWith?.('qg_')) { return this.pickGuild(id, group_id) }
+    if (group_id.startsWith?.('qg_')) return this.pickGuild(id, group_id)
+
     const i = {
       ...Bot[id].gl.get(group_id),
       self_id: id,
@@ -162,7 +163,6 @@ export default class QQBotAdapter {
       ...config.bot,
       real_self_id: id,
       appid: token[1],
-      token: token[2],
       secret: token[3],
       intents: [
         'GUILDS',
@@ -172,7 +172,8 @@ export default class QQBotAdapter {
         'INTERACTION',
         'MESSAGE_AUDIT'
       ],
-      mode: ReceiverMode.WEBSOCKET
+      mode: ReceiverMode.WEBSOCKET,
+      groupMemberCache: true
     }
 
     if (Number(token[4])) opts.intents.push('GROUP_AND_C2C_EVENT', 'GROUP_MEMBER')
@@ -183,35 +184,10 @@ export default class QQBotAdapter {
     const bus = config.bus
     if (bus?.[id]) {
       let keys = Object.keys(bus)
-      const { sandbox, appid } = opts
-      const base = `https://${bus[id]}/proxy?url=https://${sandbox ? 'sandbox.' : ''}api.sgroup.qq.com`
-      sdk.request.defaults.baseURL = base
-
-      Object.assign(Session.prototype, {
-        getWsUrl: async function () {
-          const url = await this.authManager.getGatewayUrl()
-          this._wsUrl = keys.some(i => i == this.bot.config.real_self_id) ? `wss://${bus[id]}/ws?url=${url}&appid=${appid}` : url
-          logger.info(`WebSocket URL 已更新: ${this._wsUrl}`)
-          return this._wsUrl
-          // return new Promise((resolve) => {
-          //   this.bot.request.get('/gateway/bot', {
-          //     headers: {
-          //       Accept: '*/*',
-          //       'Accept-Encoding': 'utf-8',
-          //       'Accept-Language': 'zh-CN,zh;q=0.8',
-          //       Connection: 'keep-alive',
-          //       'User-Agent': 'v1',
-          //       Authorization: `QQBot ${token}`
-          //     }
-          //   }).then((res) => {
-          //     if (!res.data) throw new Error('获取ws连接信息异常')
-          //     this.wsUrl = keys.some(i => i == this.bot.config.real_self_id) ? `wss://${config.bus[id]}/ws?url=${res.data.url}&appid=${appid}` : res.data.url
-          //     logger.info(`WebSocket URL 已更新: ${this.wsUrl}`)
-          //     resolve(this.wsUrl)
-          //   })
-          // })
-        }
-      })
+      opts.apiBaseUrl = `https://${bus[id]}/proxy?url=https://api.sgroup.qq.com`
+      const url = await this.authManager.getGatewayUrl()
+      opts.gatewayUrl = keys.some(i => i == this.bot.config.real_self_id) ? `wss://${bus[id]}/ws?url=${url}&appid=${token[1]}` : url
+      logger.info(`WebSocket URL 已更新: ${opts.gatewayUrl}`)
     }
 
     Bot[id] = {
@@ -257,7 +233,6 @@ export default class QQBotAdapter {
       gml: await this.getMap(id, 'Member'),
 
       dau: new Dau(id, this.sep, config.dauDB),
-
       callback: {}
     }
 

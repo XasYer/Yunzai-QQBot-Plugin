@@ -1,6 +1,6 @@
 import _ from 'lodash'
+import { Handler, importJS } from '../index.js'
 import base from './base.js'
-import { importJS, Handler } from '../index.js'
 
 /** 接收消息 */
 export default class Event extends base {
@@ -43,7 +43,7 @@ export default class Event extends base {
     }
 
     if (['private', 'direct', 'group', 'guild'].includes(data.message_type)) {
-      let type = data.message_type
+      const type = data.message_type
 
       const btype = this.baseType[type]
       data.sender = {
