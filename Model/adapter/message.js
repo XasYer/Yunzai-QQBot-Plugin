@@ -16,6 +16,7 @@ export default class Message extends base {
    */
   async makeMsg (data, msg, md = 0) {
     let tempMsg = []
+    const messages = []
     const checkST = () => {
       if (tempMsg.some(s => ['audio', 'image', 'video', 'file'].includes(s.type))) {
         messages.push(tempMsg)
@@ -23,7 +24,6 @@ export default class Message extends base {
       }
     }
 
-    const messages = []
     const button = []
     let reply
 
@@ -39,7 +39,7 @@ export default class Message extends base {
       switch (i.type) {
         case 'record':
           i.type = 'audio'
-          i.data.file = await Tools.call('record', '', i.data.file, this.cfg.toBotUpload)
+          if (this.cfg.toBotUpload) i.data.file = await Tools.call('record', '', i.data.file)
         case 'video':
           if (!md) {
             checkST()
@@ -49,6 +49,10 @@ export default class Message extends base {
         case 'ark':
         case 'embed':
           if (md) messages.push([i])
+          break
+        case 'card':
+          i.data = { type: 'tuwen', content: _.omit(i.data, 'type')}
+          messages.push([i])
           break
         case 'file':
           return []
@@ -81,8 +85,10 @@ export default class Message extends base {
           let mdImg = md
           if (md) {
             const { des, url, file } = await Tools.call('img', '', data, i.data.file, i.data.summary, this.cfg)
-            if (file) mdImg = false
-            else if (md === 1) {
+            if (file) {
+              mdImg = false
+              tempMsg.push(i)
+            } else if (md === 1) {
               const limit = template.length % (length - 1)
               // 图片数量超过模板长度时
               if (template.length && !limit) {

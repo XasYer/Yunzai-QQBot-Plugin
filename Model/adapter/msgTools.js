@@ -16,13 +16,10 @@ export default {
     }
     return 'base64://' + qrl
   },
-  async record (file, upload) {
-    file = Buffer.from(await Bot.Buffer(file))
-    if (upload) {
-      const url = await this.xbotUpload(file, 'Record')
-      if (url) return url
-    }
-    return file
+  async record (file) {
+    const buffer = Buffer.from(await Bot.Buffer(file))
+    const url = await this.xbotUpload(buffer, 'Record')
+    return url || file
   },
   async img (data, file, summary = '图片', config) {
     const buffer = await Bot.Buffer(file)
@@ -44,7 +41,6 @@ export default {
 
     image.width = Math.floor(image.width * config.markdownImgScale)
     image.height = Math.floor(image.height * config.markdownImgScale)
-
 
     if (!upload) {
       if (Handler.has('QQBot.makeMarkdownImage')) {
