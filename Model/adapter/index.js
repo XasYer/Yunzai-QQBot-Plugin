@@ -1,4 +1,4 @@
-import { Bot as QQBot, ReceiverMode, Session } from 'qq-official-bot'
+import { Bot as QQBot, ReceiverMode } from 'qq-official-bot'
 import { config, Dau } from '../index.js'
 import Event from './event.js'
 import Message from './message.js'
@@ -259,6 +259,16 @@ export default class QQBotAdapter {
 
     Bot.makeLog('mark', `${this.name}(${this.id}) ${this.version} 已连接`, id)
     Bot.em(`connect.${id}`, { self_id: id })
+
+    const materials = await Bot[id].sdk.getMaterialImages()
+    if (materials.length) {
+      const key = `QQBot:${id}:material`
+      const multi = redis.multi()
+      multi.del(key)
+      multi.rPush(key, materials.map(v => v.image_id))
+      await multi.exec()
+    }
+    Bot.makeLog('mark', `${this.name}素材管理 ${materials.length}`, id)
     return true
   }
 

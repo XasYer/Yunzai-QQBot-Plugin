@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import fs from 'node:fs'
-import { join } from 'node:path'
 import imageSize from 'image-size'
 import _ from 'lodash'
 import QRCode from 'qrcode'
-import { encode as encodeSilk } from 'silk-wasm'
 import { Handler, splitMarkDownTemplate, getMustacheTemplating } from '../index.js'
 
 export default {
@@ -20,66 +17,44 @@ export default {
     return 'base64://' + qrl
   },
   async record (file, upload) {
+    file = Buffer.from(await Bot.Buffer(file))
     if (upload) {
-      for (const i of Bot.uin) {
-        if (!Bot[i].uploadRecord) continue
-        try {
-          const url = await Bot[i].uploadRecord(file)
-          if (url) return url
-        } catch (err) {
-          Bot.makeLog('error', ['Bot', i, '语音上传错误', file, err])
-        }
-      }
-    }
-
-    const inputFile = join('temp', randomUUID())
-    const pcmFile = join('temp', randomUUID())
-
-    try {
-      fs.writeFileSync(inputFile, await Bot.Buffer(file))
-      await Bot.exec(`ffmpeg -i "${inputFile}" -f s16le -ar 48000 -ac 1 "${pcmFile}"`)
-      file = Buffer.from((await encodeSilk(fs.readFileSync(pcmFile), 48000)).data)
-    } catch (err) {
-      logger.error(`silk 转码错误：${err}`)
-    }
-
-    for (const i of [inputFile, pcmFile]) {
-      try {
-        fs.unlinkSync(i)
-      } catch (err) { }
+      const url = await this.xbotUpload(file, 'Record')
+      if (url) return url
     }
     return file
   },
   async img (data, file, summary = '图片', config) {
     const buffer = await Bot.Buffer(file)
-    const image = await uploadImg(buffer, config.toBotUpload) || { url: await Bot.fileToUrl(file) }
+    let size
+    try {
+      size = imageSize(buffer)
+    } catch (err) {
+      Bot.makeLog('error', ['图片分辨率检测错误', file, err], data.self_id)
+    }
+    if (size.type === 'gif') return { file }
+
+    const upload = await uploadImg()
+    const image = { url: upload || await Bot.fileToUrl(file) }
 
     if (!image.width || !image.height) {
-      try {
-        const size = imageSize(buffer)
-        image.width = size.width
-        image.height = size.height
-      } catch (err) {
-        Bot.makeLog('error', ['图片分辨率检测错误', file, err], data.self_id)
-      }
+      image.width = size.width
+      image.height = size.height
     }
 
     image.width = Math.floor(image.width * config.markdownImgScale)
     image.height = Math.floor(image.height * config.markdownImgScale)
 
-    if (Handler.has('QQBot.makeMarkdownImage')) {
-      const res = await Handler.call(
-        'QQBot.makeMarkdownImage',
-        data,
-        {
-          image,
-          buffer,
-          file,
-          summary,
-          config
-        }
-      )
-      if (res) typeof res === 'object' ? Object.assign(image, res) : image.url = res
+
+    if (!upload) {
+      if (Handler.has('QQBot.makeMarkdownImage')) {
+        const res = await Handler.call(
+          'QQBot.makeMarkdownImage',
+          data,
+          { image, buffer, file, summary, config }
+        )
+        if (res) typeof res === 'object' ? Object.assign(image, res) : image.url = res
+      }
     }
 
     return {
@@ -87,19 +62,33 @@ export default {
       url: `(${image.url})`
     }
 
-    async function uploadImg (file, upload) {
-      if (upload) {
-        for (const i of Bot.uin) {
-          if (!Bot[i].uploadImage) continue
-          if (Bot[i].adapter.name !== 'QQBot') continue
-          try {
-            const image = await Bot[i].uploadImage(file)
-            if (image.url) return image
-          } catch (err) {
-            Bot.makeLog('error', ['Bot', i, '图片上传错误', file, err])
+    async function uploadImg () {
+      if (!config.toBotUpload) return false
+      const { sdk } = data.bot
+      let res = false
+
+      if (buffer.length <= 10 * 1024 * 1024) {
+        const key = `QQBot:${data.self_id}:material`
+
+        if (await redis.lLen(key) > 90) {
+          const dlist = await redis.lPop(key, 20)
+          for (const id of dlist) {
+            await sdk.deleteMaterialImage(id)
           }
         }
+
+        res = await sdk.uploadMaterialImage(file)
+        await redis.rPush(key, res.image_id)
+      } else if (buffer.length <= 20 * 1024 * 1024) {
+        const id = data.id
+        const btype = data.type
+        const res = await sdk.uploadMedia(id, btype, file)
+        res.url = res.raw_url
+      } else {
+        res = await this.xbotUpload(buffer, 'Image')
+        if (!res.url) return false
       }
+      return res?.url
     }
   },
   button (data, btnBlock) {
@@ -239,5 +228,17 @@ export default {
   _callInternal (fnName, ...args) {
     const fn = this[fnName]
     return Reflect.apply(fn, this, args)
+  },
+  async xbotUpload (buffer, type) {
+    const fn = 'upload' + type
+    for (const i of Bot.uin) {
+      if (!Bot[i][fn]) continue
+      try {
+        const res = await Bot[i][fn](buffer)
+        if (res) return res
+      } catch (err) {
+        Bot.makeLog('error', ['Bot', i, `${type}上传错误`, buffer, err])
+      }
+    }
   }
 }

@@ -15,10 +15,9 @@ export default class Message extends base {
    * @returns
    */
   async makeMsg (data, msg, md = 0) {
-    const sendType = ['audio', 'image', 'video', 'file']
     let tempMsg = []
     const checkST = () => {
-      if (tempMsg.some(s => sendType.includes(s.type))) {
+      if (tempMsg.some(s => ['audio', 'image', 'video', 'file'].includes(s.type))) {
         messages.push(tempMsg)
         tempMsg = []
       }
@@ -40,7 +39,7 @@ export default class Message extends base {
       switch (i.type) {
         case 'record':
           i.type = 'audio'
-          i.data.file = await Tools.call('record', '', i.file, this.cfg)
+          i.data.file = await Tools.call('record', '', i.data.file, this.cfg.toBotUpload)
         case 'video':
           if (!md) {
             checkST()
@@ -79,20 +78,21 @@ export default class Message extends base {
           }
           if (!md) break
         case 'image':
+          let mdImg = md
           if (md) {
-            const { des, url } = await Tools.call('img', '', data, i.data.file, i.data.summary, this.cfg)
-            if (md === 1) {
+            const { des, url, file } = await Tools.call('img', '', data, i.data.file, i.data.summary, this.cfg)
+            if (file) mdImg = false
+            else if (md === 1) {
               const limit = template.length % (length - 1)
-
               // 图片数量超过模板长度时
               if (template.length && !limit) {
                 if (content) template.push(content)
                 template.push(des)
               } else template.push(content + des)
-
               content = url
             } else content += `${des}${url}`
-          } else checkST()
+          } 
+          if (!mdImg) checkST()
           break
         case 'markdown':
           if (typeof i.data === 'object') {
@@ -275,10 +275,9 @@ export default class Message extends base {
     if (TmplPkg?.Button && !data.toQQBotMD) this.#TmplRemake(data, msg)
 
     if ((this.cfg.markdown[selfId] || this.cfg.customMD[selfId]) && data.toQQBotMD !== false) {
-      if (this.cfg.markdown[selfId] === 'raw') msgs = await this.makeMsg(data, msg, 2)
-      else msgs = await this.makeMsg(data, msg, 1)
-
+      msgs = await this.makeMsg(data, msg, this.cfg.markdown[selfId] === 'raw' ? 2 : 1)
       const [mds, btns] = _.partition(msgs[0], v => v.type === 'markdown')
+
       if (mds.length > 1) {
         for (const idx in mds) {
           msgs = mds[idx]
