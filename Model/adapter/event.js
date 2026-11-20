@@ -47,16 +47,16 @@ export default class Event extends base {
     if (['private', 'direct', 'group', 'guild'].includes(type)) {
       const btype = this.baseType[type]
       data.sender = {
-        ...event.author,
+        ...event.sender,
         user_id: `${data.self_id}${this.sep}${event.user_id}`,
-        nickname: event.author.username
+        nickname: event.sender.member_nickname || event.sender.user_name || ''
       }
 
       // 自定义消息过滤前台日志防刷屏(自欺欺人大法)
       const filterLog = this.cfg.filterLog?.[data.self_id] || []
       const logStat = filterLog.includes(_.trim(data.raw_message)) ? 'debug' : 'info'
 
-      const logPrefix = await this[`${type}RM`](data, event, btype, '消息')
+      const logPrefix = await this[`${type}RM`](data, event)
       Bot.makeLog(logStat, `${btype.name}消息：${logPrefix} ${data.raw_message}`, data.self_id)
 
       data.reply = msg => this.entry.Message.sendMsg(type, data, msg, { id: data.message_id })
@@ -201,18 +201,18 @@ export default class Event extends base {
   async receive (data, event, type) {
   }
 
-  privateRM (data, event, btype) {
-    return `[${event[btype.id]}]`
+  privateRM (data) {
+    return `[${data.sender.nickname}(${data.user_id})]`
   }
 
-  async groupRM (data, event, btype) {
+  async groupRM (data, event) {
     data.group_id = `${data.self_id}${this.sep}${event.group_id}`
     await this.#wsFindUser(data)
 
-    return `[${event[btype.id]}, ${data.sender.nickname || ''}(${event.user_id})]`
+    return `[${data.group_id}, ${data.sender.nickname}(${data.user_id})]`
   }
 
-  directRM (data, event, btype) {
+  directRM (data, event) {
     Object.assign(data, {
       user_id: event.user_id,
       guild_id: event.guild_id,
@@ -231,7 +231,7 @@ export default class Event extends base {
     return `[${data.sender.nickname}(${data.user_id})]`
   }
 
-  async guildRM (data, event, btype, act) {
+  async guildRM (data, event) {
     Object.assign(data, {
       message_type: 'group',
       guild_id: event.guild_id,

@@ -67,7 +67,7 @@ export default {
         const key = `QQBot:${data.self_id}:material`
 
         if (await redis.lLen(key) > 90) {
-          const dlist = await redis.lPop(key, 20)
+          const dlist = await redis.lPopCount(key, 30)
           for (const id of dlist) {
             await sdk.deleteMaterialImage(id)
           }
