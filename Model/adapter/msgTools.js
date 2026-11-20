@@ -73,7 +73,13 @@ export default {
           }
         }
 
-        res = await sdk.uploadMaterialImage(file)
+        const opts = {}
+        let upImg = file
+        if (Buffer.isBuffer(upImg) || upImg.startsWith('base64://')) {
+          upImg = buffer
+          opts = { fileName: `image.${ size?.type || 'png' }` }
+        }
+        res = await sdk.uploadMaterialImage(upImg, opts)
         await redis.rPush(key, res.image_id)
       } else if (buffer.length <= 20 * 1024 * 1024) {
         const id = data.id
