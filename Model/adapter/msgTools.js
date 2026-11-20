@@ -77,7 +77,7 @@ export default {
         let upImg = file
         if (Buffer.isBuffer(upImg) || upImg.startsWith('base64://')) {
           upImg = buffer
-          opts = { fileName: `image.${ size?.type || 'png' }` }
+          opts.fileName = `image.${ size?.type || 'png' }`
         }
         res = await sdk.uploadMaterialImage(upImg, opts)
         await redis.rPush(key, res.image_id)
